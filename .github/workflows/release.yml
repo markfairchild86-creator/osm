@@ -1,0 +1,212 @@
+name: Release builds
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: '5.15.2'
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            runner: ubuntu-22.04
+            qt_host: linux
+            qt_arch: gcc_64
+            qt_tools: ''
+            artifact: linux-x86_64
+          - name: Windows x86_64
+            runner: windows-2022
+            qt_host: windows
+            qt_arch: win64_mingw81
+            qt_tools: 'tools_mingw,qt.tools.win64_mingw810'
+            artifact: windows-x86_64
+          - name: macOS x86_64
+            runner: macos-15-intel
+            qt_host: mac
+            qt_arch: clang_64
+            qt_tools: ''
+            artifact: macos-x86_64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="$GITHUB_REF_NAME"
+          else
+            version="0.0.0-${GITHUB_SHA::7}"
+          fi
+          echo "OSM_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libasound2-dev \
+            libgl1-mesa-dev \
+            libfuse2 \
+            patchelf
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: ${{ matrix.qt_host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          tools: ${{ matrix.qt_tools }}
+          cache: true
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          cd build
+          qmake "$GITHUB_WORKSPACE/OpenSoundMeter.pro" CONFIG+=release CONFIG+=osm_no_linuxdeploy
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make -j"$NUMBER_OF_PROCESSORS"
+          else
+            make -j"$(getconf _NPROCESSORS_ONLN)"
+          fi
+
+      - name: Package Linux AppImage
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p \
+            AppDir/usr/bin \
+            AppDir/usr/share/applications \
+            AppDir/usr/share/icons/hicolor/256x256/apps \
+            release
+
+          install -m 0755 build/OpenSoundMeter AppDir/usr/bin/OpenSoundMeter
+          install -m 0644 OpenSoundMeter.desktop AppDir/usr/share/applications/OpenSoundMeter.desktop
+          install -m 0644 icons/white.png AppDir/usr/share/icons/hicolor/256x256/apps/white.png
+
+          curl -fsSL \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+            -o linuxdeploy
+          curl -fsSL \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage \
+            -o linuxdeploy-plugin-qt
+          chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          export QMAKE="$QT_ROOT_DIR/bin/qmake"
+          export QML_SOURCES_PATHS="$GITHUB_WORKSPACE/qml"
+
+          ./linuxdeploy \
+            --appdir AppDir \
+            --executable AppDir/usr/bin/OpenSoundMeter \
+            --desktop-file AppDir/usr/share/applications/OpenSoundMeter.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/white.png \
+            --plugin qt \
+            --output appimage
+
+          appimage="$(find . -maxdepth 1 -name '*.AppImage' ! -name 'linuxdeploy*' -print -quit)"
+          test -n "$appimage"
+          mv "$appimage" "release/OpenSoundMeter-${OSM_VERSION}-linux-x86_64.AppImage"
+
+      - name: Package Windows ZIP
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist release
+          cp build/release/OpenSoundMeter.exe dist/
+          cp README.md LICENSE dist/
+
+          dist_win="$(cygpath -w "$PWD/dist")"
+          qml_win="$(cygpath -w "$GITHUB_WORKSPACE/qml")"
+
+          # Auto-detect the binary type: Qt 5.15's MinGW --release mode can
+          # misidentify the platform plugin as a debug binary and skip it.
+          windeployqt \
+            --compiler-runtime \
+            --qmldir "$qml_win" \
+            --dir "$dist_win" \
+            "$dist_win\\OpenSoundMeter.exe"
+
+          toolchain_bin="$(dirname "$(command -v g++)")"
+          for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
+            if [[ -f "$toolchain_bin/$dll" ]]; then
+              cp "$toolchain_bin/$dll" dist/
+            fi
+          done
+
+          zip_win="$(cygpath -w "$PWD/release/OpenSoundMeter-${OSM_VERSION}-windows-x86_64.zip")"
+          powershell -NoProfile -Command \
+            "Compress-Archive -Path '$dist_win\\*' -DestinationPath '$zip_win' -Force"
+
+      - name: Package macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          macdeployqt \
+            build/OpenSoundMeter.app \
+            -qmldir="$GITHUB_WORKSPACE/qml" \
+            -always-overwrite
+          codesign \
+            --force \
+            --deep \
+            --sign - \
+            --entitlements "$GITHUB_WORKSPACE/info.entitlements" \
+            build/OpenSoundMeter.app
+          hdiutil create \
+            -volname "Open Sound Meter" \
+            -srcfolder build/OpenSoundMeter.app \
+            -ov \
+            -format UDZO \
+            "release/OpenSoundMeter-${OSM_VERSION}-macOS-x86_64.dmg"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
