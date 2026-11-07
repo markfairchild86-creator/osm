@@ -42,6 +42,7 @@ public:
 
     Q_PROPERTY(QVariant transformModes READ getAvailableTransformModes CONSTANT)
     Q_PROPERTY(Meta::Measurement::Mode transformMode READ transformMode WRITE setTransformMode NOTIFY transformModeChanged)
+    Q_PROPERTY(unsigned int logWindowPointsPerOctave READ logWindowPointsPerOctave WRITE setLogWindowPointsPerOctave NOTIFY logWindowPointsPerOctaveChanged)
 
 public:
     explicit StandardLine(QObject *parent = nullptr);
@@ -62,11 +63,15 @@ public:
     void setTransformMode(const Meta::Measurement::Mode &newTransformMode);
     static QVariant getAvailableTransformModes();
 
+    unsigned int logWindowPointsPerOctave() const;
+    void setLogWindowPointsPerOctave(unsigned int pointsPerOctave);
+
 signals:
     void loudnessChanged(float);
     void modeChanged(StandardLine::Mode);
 
     void transformModeChanged();
+    void logWindowPointsPerOctaveChanged(unsigned int);
 
 private slots:
     void update();

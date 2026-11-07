@@ -1,0 +1,41 @@
+name: Qt averaging tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  averaging:
+    name: Build and run QtTest averaging suite
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      QT_SELECT: qt5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            qtbase5-dev \
+            qtbase5-dev-tools \
+            qt5-qmake
+
+      - name: Build averaging tests
+        run: |
+          mkdir -p build/tst_magnitudeaveraging
+          cd build/tst_magnitudeaveraging
+          qmake "$GITHUB_WORKSPACE/tests/tst_magnitudeaveraging.pro" CONFIG+=release
+          make -j"$(nproc)"
+
+      - name: Run averaging tests
+        working-directory: build/tst_magnitudeaveraging
+        run: make check

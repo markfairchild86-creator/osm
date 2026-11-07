@@ -34,6 +34,7 @@ Windowing::Windowing(QObject *parent) : Abstract::Source(parent), Meta::Windowin
 
     connect(this, &Windowing::wideChanged,   this, &Windowing::update);
     connect(this, &Windowing::modeChanged,   this, &Windowing::update);
+    connect(this, &Windowing::logWindowPointsPerOctaveChanged, this, &Windowing::update);
     connect(this, &Windowing::minFrequencyChanged,   this, &Windowing::update);
     connect(this, &Windowing::maxFrequencyChanged,   this, &Windowing::update);
     connect(this, &Windowing::offsetChanged, this, &Windowing::update);
@@ -54,6 +55,7 @@ Shared::Source Windowing::clone() const
 {
     auto cloned = std::make_shared<Windowing>();
     cloned->setMode(mode());
+    cloned->setLogWindowPointsPerOctave(logWindowPointsPerOctave());
     cloned->setOffset(offset());
     cloned->setWide(wide());
     cloned->setDomain(domain());
@@ -70,6 +72,7 @@ QJsonObject Windowing::toJSON() const noexcept
     auto object = Abstract::Source::toJSON();
 
     object["mode"]                  = mode();
+    object["logWindowPointsPerOctave"] = static_cast<int>(logWindowPointsPerOctave());
     object["domain"]                = domain();
     object["offset"]                = offset();
     object["wide"]                  = wide();
@@ -88,6 +91,7 @@ void Windowing::fromJSON(QJsonObject data, const SourceList *list) noexcept
     Abstract::Source::fromJSON(data, list);
 
     setMode(static_cast<Meta::Windowing::Mode>(data["mode"].toInt(mode())));
+    setLogWindowPointsPerOctave(static_cast<unsigned int>(data["logWindowPointsPerOctave"].toInt(logWindowPointsPerOctave())));
     setDomain(static_cast<Meta::Windowing::SourceDomain>(data["domain"].toInt(domain())));
     setOffset(data["offset"].toDouble(offset()));
     setWide(data["wide"].toDouble(wide()));
@@ -521,4 +525,22 @@ Shared::Source Windowing::store()
 unsigned Windowing::sampleRate() const
 {
     return m_sampleRate;
+}
+
+unsigned int Windowing::logWindowPointsPerOctave() const
+{
+    return m_dataFT.logWindowPointsPerOctave();
+}
+
+void Windowing::setLogWindowPointsPerOctave(unsigned int pointsPerOctave)
+{
+    const unsigned int previous = m_dataFT.logWindowPointsPerOctave();
+    m_dataFT.setLogWindowPointsPerOctave(pointsPerOctave);
+    if (previous == m_dataFT.logWindowPointsPerOctave()) {
+        return;
+    }
+
+    m_resize = true;
+    update();
+    emit logWindowPointsPerOctaveChanged(m_dataFT.logWindowPointsPerOctave());
 }

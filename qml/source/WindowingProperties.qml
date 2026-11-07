@@ -195,6 +195,29 @@ Item {
                 ToolTip.text: qsTr("Transfrom mode")
             }
 
+            SelectableSpinBox {
+                id: logWindowPointsPerOctave
+                Layout.preferredWidth: elementWidth
+                value: dataObjectData.logWindowPointsPerOctave
+                from: 1
+                to: 96
+                editable: true
+                // LTW1..LTW3 are modes 9..11.
+                visible: dataObjectData.domain === 0 && dataObjectData.mode >= 9
+                onValueChanged: dataObjectData.logWindowPointsPerOctave = value
+
+                textFromValue: function(value, locale) {
+                    return value + " ppo";
+                }
+
+                valueFromText: function(text, locale) {
+                    return parseInt(text);
+                }
+
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("LTW time-window points per octave (1-96)")
+            }
+
             DropDown {
                 id: windowSelect
                 model: dataObjectData.windows

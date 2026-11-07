@@ -29,7 +29,6 @@ Coherence::Coherence(): m_subpointer(0), m_depth(1)
 }
 void Coherence::setSize(const size_t &size) noexcept
 {
-    Q_ASSERT(size % 4 == 0);
     m_Grr.resize(size);
     m_Gmm.resize(size);
     m_Grm.resize(size);
@@ -91,7 +90,8 @@ GNU_ALIGN void Coherence::calculate(Abstract::Source::FTData *dst, FourierTransf
     float Crrmm[4], CrmAbs[4];
     v4sf CrrmmVec, CrmAbsVec;
 
-    for (unsigned int i = 0; i < m_Grr.size() ; i += 4) {
+    unsigned int i = 0;
+    for (; i + 3 < m_Grr.size() ; i += 4) {
 
         calculateRR(i, src);
         calculateMM(i, src);
@@ -120,6 +120,24 @@ GNU_ALIGN void Coherence::calculate(Abstract::Source::FTData *dst, FourierTransf
         dst[i + 1].coherence = CrmAbs[1];
         dst[i + 2].coherence = CrmAbs[2];
         dst[i + 3].coherence = CrmAbs[3];
+    }
+
+    // The SIMD loop requires groups of four; handle the remaining frequency bins
+    // scalar so LTW resolutions that are not multiples of four stay valid.
+    for (; i < m_Grr.size(); ++i) {
+        m_Crr[i] -= m_Grr[i][m_subpointer];
+        m_Cmm[i] -= m_Gmm[i][m_subpointer];
+        m_Crm[i] -= m_Grm[i][m_subpointer];
+
+        m_Grr[i][m_subpointer] = src->bf(i).absSquared();
+        m_Gmm[i][m_subpointer] = src->af(i).absSquared();
+        m_Grm[i][m_subpointer] = src->bf(i).conjugate() * src->af(i);
+
+        m_Crr[i] += m_Grr[i][m_subpointer];
+        m_Cmm[i] += m_Gmm[i][m_subpointer];
+        m_Crm[i] += m_Grm[i][m_subpointer];
+
+        dst[i].coherence = std::sqrt(m_Crm[i].absSquared() / (m_Crr[i] * m_Cmm[i]));
     }
 }
 

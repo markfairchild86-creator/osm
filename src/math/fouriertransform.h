@@ -112,11 +112,23 @@ public:
 
     void setLogWindowDenominator(unsigned int newLogWindowDenominator);
 
+    //! number of LTW frequency bins per octave (1..96)
+    void setLogWindowPointsPerOctave(unsigned int pointsPerOctave);
+    unsigned int logWindowPointsPerOctave() const;
+
+    //! number of samples in the LTW window for frequency bin i
+    unsigned int logWindowLength(unsigned int i) const;
+
+    static const unsigned int DefaultLogWindowPointsPerOctave = 24;
+    static const unsigned int MinLogWindowPointsPerOctave = 1;
+    static const unsigned int MaxLogWindowPointsPerOctave = 96;
+
 private:
     unsigned int m_size;
     unsigned int m_pointer;
     unsigned int m_sampleRate;
     unsigned int m_logWindowDenominator;
+    unsigned int m_logWindowPointsPerOctave;
 
     Type m_type;
     Norm m_norm = Sqrt;

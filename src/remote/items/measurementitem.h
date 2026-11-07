@@ -35,6 +35,11 @@ class MeasurementItem : public remote::Item, public Meta::Measurement
                referenceChanelChanged)
     Q_PROPERTY(int delay READ delay WRITE setDelay NOTIFY delayChanged)
     Q_PROPERTY(int average READ average WRITE setAverage NOTIFY averageChanged)
+    Q_PROPERTY(unsigned int averageDepth READ averageDepth WRITE setAverageDepth NOTIFY averageDepthChanged)
+    Q_PROPERTY(Meta::Measurement::MagnitudeAverageType magnitudeAverageType READ magnitudeAverageType WRITE setMagnitudeAverageType NOTIFY magnitudeAverageTypeChanged)
+    Q_PROPERTY(bool coherenceWeighting READ coherenceWeighting WRITE setCoherenceWeighting NOTIFY coherenceWeightingChanged)
+    Q_PROPERTY(float coherenceExponent READ coherenceExponent WRITE setCoherenceExponent NOTIFY coherenceExponentChanged)
+    Q_PROPERTY(unsigned int logWindowPointsPerOctave READ logWindowPointsPerOctave WRITE setLogWindowPointsPerOctave NOTIFY logWindowPointsPerOctaveChanged)
     Q_PROPERTY(Meta::Measurement::Mode mode READ mode WRITE setMode NOTIFY modeChanged)
     Q_PROPERTY(Meta::Measurement::AverageType averageType READ averageType WRITE setAverageType NOTIFY averageTypeChanged)
     Q_PROPERTY(Filter::Frequency filtersFrequency READ filtersFrequency WRITE setFiltersFrequency NOTIFY
@@ -71,6 +76,11 @@ signals:
     void offsetChanged(float) override;
     void modeChanged(Meta::Measurement::Mode)  override;
     void averageChanged(unsigned int)  override;
+    void averageDepthChanged(unsigned int)  override;
+    void magnitudeAverageTypeChanged(Meta::Measurement::MagnitudeAverageType)  override;
+    void coherenceWeightingChanged(bool)  override;
+    void coherenceExponentChanged(float)  override;
+    void logWindowPointsPerOctaveChanged(unsigned int)  override;
     void dataChanelChanged(unsigned int)  override;
     void referenceChanelChanged(unsigned int)  override;
     void averageTypeChanged(Meta::Measurement::AverageType)  override;

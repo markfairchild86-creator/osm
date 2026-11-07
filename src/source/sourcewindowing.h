@@ -37,6 +37,7 @@ class Windowing : public Abstract::Source, public Meta::Windowing
     Q_PROPERTY(Shared::Source source READ source WRITE setSource NOTIFY sourceChanged)
     Q_PROPERTY(QUuid sourceId READ sourceId NOTIFY sourceChanged)
     Q_PROPERTY(Meta::Windowing::Mode mode READ mode WRITE setMode NOTIFY modeChanged)
+    Q_PROPERTY(unsigned int logWindowPointsPerOctave READ logWindowPointsPerOctave WRITE setLogWindowPointsPerOctave NOTIFY logWindowPointsPerOctaveChanged)
     Q_PROPERTY(Meta::Windowing::SourceDomain domain READ domain WRITE setDomain NOTIFY domainChanged)
     Q_PROPERTY(QString tipName READ tipName WRITE setTipName NOTIFY tipNameChanged)
     Q_PROPERTY(WindowFunction::Type window READ windowFunctionType WRITE setWindowFunctionType NOTIFY
@@ -63,6 +64,9 @@ public:
 
     unsigned sampleRate() const;
 
+    unsigned int logWindowPointsPerOctave() const;
+    void setLogWindowPointsPerOctave(unsigned int pointsPerOctave);
+
 public slots:
     void applyAutoName();
     void update();
@@ -75,6 +79,7 @@ signals:
     void minFrequencyChanged() override;
     void maxFrequencyChanged() override;
     void modeChanged(Meta::Windowing::Mode) override;
+    void logWindowPointsPerOctaveChanged(unsigned int);
     void domainChanged(Meta::Windowing::SourceDomain) override;
     void tipNameChanged(QString) override;
     void windowFunctionTypeChanged(WindowFunction::Type) override;

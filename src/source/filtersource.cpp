@@ -27,6 +27,7 @@ FilterSource::FilterSource(QObject *parent) : Abstract::Source(parent), Meta::Fi
 
     connect(this, &FilterSource::typeChanged, this, &FilterSource::update);
     connect(this, &FilterSource::modeChanged, this, &FilterSource::update);
+    connect(this, &FilterSource::logWindowPointsPerOctaveChanged, this, &FilterSource::update);
     connect(this, &FilterSource::orderChanged, this, &FilterSource::update);
     connect(this, &FilterSource::gainChanged, this, &FilterSource::update);
     connect(this, &FilterSource::qChanged, this, &FilterSource::update);
@@ -48,6 +49,7 @@ Shared::Source FilterSource::clone() const
     cloned->setActive(active());
     cloned->setName(name());
     cloned->setMode(mode());
+    cloned->setLogWindowPointsPerOctave(logWindowPointsPerOctave());
     cloned->setType(type());
     cloned->setCornerFrequency(cornerFrequency());
     cloned->setOrder(order());
@@ -65,6 +67,7 @@ QJsonObject FilterSource::toJSON() const noexcept
     auto object = Abstract::Source::toJSON();
 
     object["mode"]          = mode();
+    object["logWindowPointsPerOctave"] = static_cast<int>(logWindowPointsPerOctave());
     object["type"]          = type();
     object["cornerFrequency"]     = cornerFrequency();
     object["gain"]          = gain();
@@ -90,6 +93,7 @@ void FilterSource::fromJSON(QJsonObject data, const SourceList *) noexcept
         setType(variantType.value<Type>());
     }
 
+    setLogWindowPointsPerOctave(static_cast<unsigned int>(data["logWindowPointsPerOctave"].toInt(logWindowPointsPerOctave())));
     setOrder(           data["order"].toInt(            order()));
     setCornerFrequency( data["cornerFrequency"].toDouble(cornerFrequency()));
     setGain(    data["gain"].toDouble(gain()));
@@ -417,4 +421,21 @@ void FilterSource::setAutoName(bool newAutoName)
         return;
     m_autoName = newAutoName;
     emit autoNameChanged();
+}
+
+unsigned int FilterSource::logWindowPointsPerOctave() const
+{
+    return m_dataFT.logWindowPointsPerOctave();
+}
+
+void FilterSource::setLogWindowPointsPerOctave(unsigned int pointsPerOctave)
+{
+    const unsigned int previous = m_dataFT.logWindowPointsPerOctave();
+    m_dataFT.setLogWindowPointsPerOctave(pointsPerOctave);
+    if (previous == m_dataFT.logWindowPointsPerOctave()) {
+        return;
+    }
+
+    update();
+    emit logWindowPointsPerOctaveChanged(m_dataFT.logWindowPointsPerOctave());
 }

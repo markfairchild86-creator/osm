@@ -22,6 +22,7 @@ import QtQuick.Dialogs 1.2
 import QtQuick.Controls.Material 2.13
 
 import StandardLine 1.0
+import Measurement 1.0
 import SourceModel 1.0
 import "qrc:/elements"
 
@@ -103,6 +104,28 @@ Item {
                 onCurrentIndexChanged: dataObjectData.transformMode = currentIndex;
                 Layout.preferredWidth: elementWidth
 
+            }
+
+            SelectableSpinBox {
+                id: logWindowPointsPerOctave
+                Layout.preferredWidth: elementWidth
+                value: dataObjectData.logWindowPointsPerOctave
+                from: 1
+                to: 96
+                editable: true
+                visible: dataObjectData.transformMode === Measurement.LFT
+                onValueChanged: dataObjectData.logWindowPointsPerOctave = value
+
+                textFromValue: function(value, locale) {
+                    return value + " ppo";
+                }
+
+                valueFromText: function(text, locale) {
+                    return parseInt(text);
+                }
+
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("LTW time-window points per octave (1-96)")
             }
 
             DropDown {

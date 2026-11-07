@@ -36,6 +36,7 @@ Measurement::Measurement(QObject *parent) : Abstract::Source(parent), Meta::Meas
     m_audioStream(nullptr),
     m_settings(nullptr),//TODO: alean and remove
     m_currentMode(Mode::FFT10),
+    m_currentLogWindowPointsPerOctave(0),
     m_workingDelay(0), m_delayFinderCounter(0),
     m_estimatedDelay(0),
     m_error(false), m_onReset(false),
@@ -60,6 +61,16 @@ Measurement::Measurement(QObject *parent) : Abstract::Source(parent), Meta::Meas
                                                                                 &Measurement::averageTypeChanged,   averageType()));
         setAverage(     m_settings->reactValue<Measurement, unsigned int>(      "average/fifo", this,
                                                                                 &Measurement::averageChanged,       average()).toUInt());
+        setAverageDepth(m_settings->reactValue<Measurement, unsigned int>(      "average/depth", this,
+                                                                                &Measurement::averageDepthChanged,  averageDepth()).toUInt());
+        setMagnitudeAverageType(m_settings->reactValue<Measurement, MagnitudeAverageType>("average/magnitude", this,
+                                                                                &Measurement::magnitudeAverageTypeChanged, magnitudeAverageType()));
+        setCoherenceWeighting(m_settings->reactValue<Measurement, bool>(        "average/coherence", this,
+                                                                                &Measurement::coherenceWeightingChanged, coherenceWeighting()).toBool());
+        setCoherenceExponent(m_settings->reactValue<Measurement, float>(        coherenceExponentSettingsKey(), this,
+                                                                                &Measurement::coherenceExponentChanged, coherenceExponent()).toFloat());
+        setLogWindowPointsPerOctave(m_settings->reactValue<Measurement, unsigned int>("ltw/pointsPerOctave", this,
+                                                                                &Measurement::logWindowPointsPerOctaveChanged, logWindowPointsPerOctave()).toUInt());
         setFiltersFrequency(m_settings->reactValue<Measurement, Filter::Frequency>("average/lpf", this,
                                                                                    &Measurement::filtersFrequencyChanged, filtersFrequency()));
         setWindowFunctionType( m_settings->reactValue<Measurement, WindowFunction::Type>("window",     this,
@@ -80,6 +91,7 @@ Measurement::Measurement(QObject *parent) : Abstract::Source(parent), Meta::Meas
     m_moduleLPFs.resize(frequencyDomainSize());
     m_magnitudeLPFs.resize(frequencyDomainSize());
     m_phaseLPFs.resize(frequencyDomainSize());
+    m_transferLPFs.resize(frequencyDomainSize());
     m_meters.resize(frequencyDomainSize());
 
     m_deconvolution.setSize(timeDomainSize());
@@ -90,6 +102,16 @@ Measurement::Measurement(QObject *parent) : Abstract::Source(parent), Meta::Meas
     m_deconvLPFs.resize(timeDomainSize());
     m_deconvAvg.setSize(timeDomainSize());
     m_deconvAvg.reset();
+    m_deconvTemporal.setSize(timeDomainSize());
+    m_magnitudeTemporal.setSize(frequencyDomainSize());
+    m_moduleTemporal.setSize(frequencyDomainSize());
+    m_phaseTemporal.setSize(frequencyDomainSize());
+    m_transferTemporal.setSize(frequencyDomainSize());
+    m_magnitudeGate.setSize(frequencyDomainSize());
+    m_moduleGate.setSize(frequencyDomainSize());
+    m_phaseGate.setSize(frequencyDomainSize());
+    m_transferGate.setSize(frequencyDomainSize());
+    updateTemporalAveraging();
     m_coherence.setDepth(21);//Filter::BesselLPF<float>::ORDER);
 
     m_timer.setInterval(TIMER_INTERVAL);
@@ -111,6 +133,10 @@ Measurement::Measurement(QObject *parent) : Abstract::Source(parent), Meta::Meas
     connect(this, &Measurement::deviceIdChanged, &m_timer, refreshDelays);
 
     connect(this, &Measurement::averageChanged, this, &Measurement::updateAverage);
+    connect(this, &Measurement::averageTypeChanged, this, &Measurement::updateAverage);
+    connect(this, &Measurement::averageDepthChanged, this, &Measurement::updateAverage);
+    connect(this, &Measurement::coherenceWeightingChanged, this, &Measurement::updateCoherenceWeighting);
+    connect(this, &Measurement::coherenceExponentChanged, this, &Measurement::updateCoherenceWeighting);
     connect(this, &Measurement::windowFunctionTypeChanged, this, &Measurement::updateWindowFunction);
     connect(this, &Measurement::filtersFrequencyChanged, this, &Measurement::updateFilterFrequency);
     connect(this, &Measurement::inputFilterChanged, this, &Measurement::applyInputFilters);
@@ -133,6 +159,11 @@ QJsonObject Measurement::toJSON() const noexcept
     data["offset"]          = offset();
     data["averageType"]     = averageType();
     data["average"]         = static_cast<int>(average());
+    data["averageDepth"]    = static_cast<int>(averageDepth());
+    data["magnitudeAverageType"] = static_cast<int>(magnitudeAverageType());
+    data["coherenceWeighting"] = coherenceWeighting();
+    data["coherenceExponent"] = coherenceExponent();
+    data["logWindowPointsPerOctave"] = static_cast<int>(logWindowPointsPerOctave());
     data["filtersFrequency"] = static_cast<int>(filtersFrequency());
     data["window.type"]     = m_windowFunctionType;
     data["dataChanel"]      = static_cast<int>(dataChanel());
@@ -171,6 +202,11 @@ void Measurement::fromJSON(QJsonObject data, const SourceList *list) noexcept
     setOffset(                    data["offset"].toDouble(  offset()));
     setDelay(            castUInt(data["delay"           ], delay()));
     setAverage(          castUInt(data["average"         ], average()));
+    setAverageDepth(     castUInt(data["averageDepth"    ], averageDepth()));
+    setMagnitudeAverageType(static_cast<MagnitudeAverageType>(data["magnitudeAverageType"].toInt(magnitudeAverageType())));
+    setCoherenceWeighting(data["coherenceWeighting"].toBool(coherenceWeighting()));
+    setCoherenceExponent(static_cast<float>(data["coherenceExponent"].toDouble(static_cast<double>(coherenceExponent()))));
+    setLogWindowPointsPerOctave(castUInt(data["logWindowPointsPerOctave"], logWindowPointsPerOctave()));
     setDataChanel(       castUInt(data["dataChanel"      ], dataChanel()));
     setReferenceChanel(  castUInt(data["referenceChanel" ], referenceChanel()));
 
@@ -236,11 +272,14 @@ float Measurement::referencePeak() const
 //should be called while mutex locked
 void Measurement::updateFftPower()
 {
-    if (Q_LIKELY(m_mode == m_currentMode)) return;
+    const unsigned int pointsPerOctave = logWindowPointsPerOctave();
+    if (Q_LIKELY(m_mode == m_currentMode && pointsPerOctave == m_currentLogWindowPointsPerOctave)) return;
     m_currentMode = m_mode;
+    m_currentLogWindowPointsPerOctave = pointsPerOctave;
 
     switch (m_currentMode) {
     case Mode::LFT:
+        m_dataFT.setLogWindowPointsPerOctave(pointsPerOctave);
         m_dataFT.setType(FourierTransform::Log);
         setTimeDomainSize(pow(2, m_FFTsizes.at(FFT12)));
         break;
@@ -259,11 +298,13 @@ void Measurement::updateFftPower()
     m_moduleAvg.setSize(frequencyDomainSize());
     m_magnitudeAvg.setSize(frequencyDomainSize());
     m_pahseAvg.setSize(frequencyDomainSize());
+    m_transferAvg.setSize(frequencyDomainSize());
     m_coherence.setSize(frequencyDomainSize());
 
     m_moduleLPFs.resize(frequencyDomainSize());
     m_magnitudeLPFs.resize(frequencyDomainSize());
     m_phaseLPFs.resize(frequencyDomainSize());
+    m_transferLPFs.resize(frequencyDomainSize());
     m_meters.resize(frequencyDomainSize());
 
     // Deconvolution:
@@ -271,6 +312,17 @@ void Measurement::updateFftPower()
     m_deconvLPFs.resize(timeDomainSize());
     m_deconvAvg.setSize(timeDomainSize());
     m_deconvAvg.reset();
+
+    m_deconvTemporal.setSize(timeDomainSize());
+    m_magnitudeTemporal.setSize(frequencyDomainSize());
+    m_moduleTemporal.setSize(frequencyDomainSize());
+    m_phaseTemporal.setSize(frequencyDomainSize());
+    m_transferTemporal.setSize(frequencyDomainSize());
+    m_magnitudeGate.setSize(frequencyDomainSize());
+    m_moduleGate.setSize(frequencyDomainSize());
+    m_phaseGate.setSize(frequencyDomainSize());
+    m_transferGate.setSize(frequencyDomainSize());
+    updateTemporalAveraging();
 }
 void Measurement::updateFilterFrequency()
 {
@@ -282,6 +334,9 @@ void Measurement::updateFilterFrequency()
     m_magnitudeLPFs.each(setFrequency);
     m_deconvLPFs.each(setFrequency);
     m_phaseLPFs.each([&m_filtersFrequency = m_filtersFrequency](Filter::BesselLPF<Complex> *f) {
+        f->setFrequency(m_filtersFrequency);
+    });
+    m_transferLPFs.each([&m_filtersFrequency = m_filtersFrequency](Filter::BesselLPF<Complex> *f) {
         f->setFrequency(m_filtersFrequency);
     });
 }
@@ -450,6 +505,81 @@ void Measurement::updateAverage()
     m_moduleAvg.setDepth(m_average);
     m_magnitudeAvg.setDepth(m_average);
     m_pahseAvg.setDepth(m_average);
+    m_transferAvg.setDepth(m_average);
+    updateTemporalAveraging();
+}
+
+void Measurement::updateCoherenceWeighting()
+{
+    std::lock_guard<std::mutex> guard(m_dataMutex);
+    m_magnitudeGate.reset();
+    m_moduleGate.reset();
+    m_phaseGate.reset();
+    m_transferGate.reset();
+}
+
+/*
+ * Per bin setup of the temporal averagers:
+ * Fast/Slow are plain one-pole averages with fixed time constants, Infinite
+ * averages all frames since reset, and Progressive maps depth 1-10 to one time
+ * constant shared by all bins. Coherence weighting is a separate gate applied
+ * on top of the selected averaging type.
+ */
+void Measurement::updateTemporalAveraging()
+{
+    const bool infinite = (averageType() == AverageType::Infinite);
+    m_moduleTemporal.setInfinite(infinite);
+    m_magnitudeTemporal.setInfinite(infinite);
+    m_phaseTemporal.setInfinite(infinite);
+    m_transferTemporal.setInfinite(infinite);
+    m_deconvTemporal.setInfinite(infinite);
+
+    m_moduleGate.setInfinite(false);
+    m_magnitudeGate.setInfinite(false);
+    m_phaseGate.setInfinite(false);
+    m_transferGate.setInfinite(false);
+
+    const float interval = TIMER_INTERVAL / 1000.f;
+    float alpha = 0.f;
+    switch (averageType()) {
+    case AverageType::Fast:
+        alpha = TemporalAveraging<float>::alphaFor(0.125f, interval);
+        break;
+    case AverageType::Slow:
+        alpha = TemporalAveraging<float>::alphaFor(1.f, interval);
+        break;
+    case AverageType::Progressive: {
+        const unsigned int depth = std::max(1u, std::min(10u, averageDepth()));
+        const float timeConstant = 0.125f * std::pow(2.f, static_cast<float>(depth) - 1.f);
+        alpha = TemporalAveraging<float>::alphaFor(timeConstant, interval);
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (alpha > 0.f) {
+        m_moduleTemporal.setAlpha(alpha);
+        m_magnitudeTemporal.setAlpha(alpha);
+        m_phaseTemporal.setAlpha(alpha);
+        m_transferTemporal.setAlpha(alpha);
+        m_deconvTemporal.setAlpha(alpha);
+    }
+
+    m_magnitudeGate.setAlpha(1.f);
+    m_moduleGate.setAlpha(1.f);
+    m_phaseGate.setAlpha(1.f);
+    m_transferGate.setAlpha(1.f);
+
+    m_moduleTemporal.reset();
+    m_magnitudeTemporal.reset();
+    m_phaseTemporal.reset();
+    m_transferTemporal.reset();
+    m_deconvTemporal.reset();
+    m_magnitudeGate.reset();
+    m_moduleGate.reset();
+    m_phaseGate.reset();
+    m_transferGate.reset();
 }
 
 void Measurement::updateWindowFunction()
@@ -556,6 +686,7 @@ void Measurement::averaging()
 {
     Complex p;
     int j;
+    m_coherence.calculate(m_ftdata.data(), &m_dataFT);
     for (unsigned int i = 0; i < frequencyDomainSize() ; i++) {
 
         j = static_cast<int>(i);
@@ -582,35 +713,104 @@ void Measurement::averaging()
             magnitude = 0.f;
         }
 
+        float weight = 1.f;
+        if (m_coherenceWeighting) {
+            weight = coherenceWeight(m_ftdata[i].coherence, coherenceExponent());
+        }
+
+        // Polar magnitude averaging keeps scalar magnitudes. Vector averaging
+        // instead averages the complex transfer function, then derives both
+        // magnitude and phase from that vector sum.
+        Complex transfer = p * magnitude;
+        if (!std::isfinite(transfer.real) || !std::isfinite(transfer.imag)) {
+            transfer = Complex(magnitude, 0.f);
+        }
+
+        float averagedMagnitude = magnitude;
+        float averagedModule = calibratedA;
+        Complex averagedPhase = p;
+        Complex averagedTransfer = transfer;
+
         switch (averageType()) {
         case AverageType::Off:
-            m_ftdata[i].magnitude = magnitude;
-            m_ftdata[i].module    = calibratedA;
-            m_ftdata[i].phase     = p;
+            if (m_coherenceWeighting) {
+                averagedMagnitude = m_magnitudeGate.append(i, magnitude, weight);
+                averagedModule = m_moduleGate.append(i, calibratedA, weight);
+                averagedPhase = m_phaseGate.append(i, p, weight);
+                averagedTransfer = m_transferGate.append(i, transfer, weight);
+            }
             break;
 
-        case AverageType::LPF:
-            m_ftdata[i].magnitude = m_magnitudeLPFs[i](magnitude);
-            m_ftdata[i].module    = m_moduleLPFs[i](calibratedA);
-            m_ftdata[i].phase     = m_phaseLPFs[i](p);
+        case AverageType::LPF: {
+            const float filteredMagnitude = m_magnitudeLPFs[i](magnitude);
+            const float filteredModule = m_moduleLPFs[i](calibratedA);
+            const Complex filteredPhase = m_phaseLPFs[i](p);
+            const Complex filteredTransfer = m_transferLPFs[i](transfer);
+            if (m_coherenceWeighting) {
+                averagedMagnitude = m_magnitudeGate.append(i, filteredMagnitude, weight);
+                averagedModule = m_moduleGate.append(i, filteredModule, weight);
+                averagedPhase = m_phaseGate.append(i, filteredPhase, weight);
+                averagedTransfer = m_transferGate.append(i, filteredTransfer, weight);
+            } else {
+                averagedMagnitude = filteredMagnitude;
+                averagedModule = filteredModule;
+                averagedPhase = filteredPhase;
+                averagedTransfer = filteredTransfer;
+            }
             break;
+        }
 
-        case AverageType::FIFO:
+        case AverageType::FIFO: {
             m_magnitudeAvg.append(i, magnitude );
             m_moduleAvg.append(i,    calibratedA );
             m_pahseAvg.append(i,     p);
+            m_transferAvg.append(i,  transfer );
 
-            m_ftdata[i].magnitude = m_magnitudeAvg.value(i);
-            m_ftdata[i].module    = m_moduleAvg.value(i);
-            m_ftdata[i].phase     = m_pahseAvg.value(i);
+            const float fifoMagnitude = m_magnitudeAvg.value(i);
+            const float fifoModule = m_moduleAvg.value(i);
+            const Complex fifoPhase = m_pahseAvg.value(i);
+            const Complex fifoTransfer = m_transferAvg.value(i);
+            if (m_coherenceWeighting) {
+                averagedMagnitude = m_magnitudeGate.append(i, fifoMagnitude, weight);
+                averagedModule = m_moduleGate.append(i, fifoModule, weight);
+                averagedPhase = m_phaseGate.append(i, fifoPhase, weight);
+                averagedTransfer = m_transferGate.append(i, fifoTransfer, weight);
+            } else {
+                averagedMagnitude = fifoMagnitude;
+                averagedModule = fifoModule;
+                averagedPhase = fifoPhase;
+                averagedTransfer = fifoTransfer;
+            }
             break;
         }
+
+        case AverageType::Fast:
+        case AverageType::Slow:
+        case AverageType::Infinite:
+        case AverageType::Progressive:
+            averagedMagnitude = m_magnitudeTemporal.append(i, magnitude, weight);
+            averagedModule    = m_moduleTemporal.append(i, calibratedA, weight);
+            averagedPhase     = m_phaseTemporal.append(i, p, weight);
+            averagedTransfer  = m_transferTemporal.append(i, transfer, weight);
+            break;
+        }
+
+        if (magnitudeAverageType() == MagnitudeAverageType::Vector) {
+            averagedMagnitude = averagedTransfer.abs();
+            if (!std::isfinite(averagedMagnitude)) {
+                averagedMagnitude = 0.f;
+            }
+            averagedPhase.polar(averagedTransfer.arg());
+        }
+
+        m_ftdata[i].magnitude = averagedMagnitude;
+        m_ftdata[i].module    = averagedModule;
+        m_ftdata[i].phase     = averagedPhase;
 
         m_meters[i].add(calibratedA);
         m_ftdata[i].peakSquared = m_meters[i].peakSquared();
         m_ftdata[i].meanSquared = m_meters[i].value();
     }
-    m_coherence.calculate(m_ftdata.data(), &m_dataFT);
 
     int t = 0;
     float kt = 1000.f / sampleRate();
@@ -631,6 +831,13 @@ void Measurement::averaging()
         case AverageType::FIFO:
             m_deconvAvg.append(i, m_deconvolution.get(i));
             m_impulseData[j].value.real = m_deconvAvg.value(i);
+            break;
+
+        case AverageType::Fast:
+        case AverageType::Slow:
+        case AverageType::Infinite:
+        case AverageType::Progressive:
+            m_impulseData[j].value.real = m_deconvTemporal.append(i, m_deconvolution.get(i));
             break;
         }
         m_impulseData[j].time  = t * kt;//ms
@@ -671,7 +878,26 @@ Shared::Source Measurement::store()
     case FIFO:
         avg = "FIFO " + QString::number(m_average);
         break;
+    case Fast:
+        avg = "Fast";
+        break;
+    case Slow:
+        avg = "Slow";
+        break;
+    case Infinite:
+        avg = "Infinite";
+        break;
+    case Progressive:
+        avg = "Progressive " + QString::number(m_averageDepth);
+        break;
     }
+    if (m_coherenceWeighting) {
+        avg += " + coherence";
+        if (!qFuzzyCompare(coherenceExponent(), 1.f)) {
+            avg += "^" + QString::number(coherenceExponent(), 'f', 2);
+        }
+    }
+    avg += (m_magnitudeAverageType == MagnitudeAverageType::Vector) ? " vector" : " polar";
     QString modeNote;
     switch (mode()) {
     case LFT:
@@ -707,6 +933,11 @@ Shared::Source Measurement::clone() const
     cloned->setMode(mode());
     cloned->setAverageType(averageType());
     cloned->setAverage(average());
+    cloned->setAverageDepth(averageDepth());
+    cloned->setMagnitudeAverageType(magnitudeAverageType());
+    cloned->setCoherenceWeighting(coherenceWeighting());
+    cloned->setCoherenceExponent(coherenceExponent());
+    cloned->setLogWindowPointsPerOctave(logWindowPointsPerOctave());
     cloned->setFiltersFrequency(filtersFrequency());
     cloned->setPolarity(polarity());
     cloned->setDataChanel(dataChanel());
@@ -910,11 +1141,23 @@ void Measurement::resetAverage() noexcept
     m_moduleAvg.reset();
     m_magnitudeAvg.reset();
     m_pahseAvg.reset();
+    m_transferAvg.reset();
+
+    m_deconvTemporal.reset();
+    m_moduleTemporal.reset();
+    m_magnitudeTemporal.reset();
+    m_phaseTemporal.reset();
+    m_transferTemporal.reset();
+    m_magnitudeGate.reset();
+    m_moduleGate.reset();
+    m_phaseGate.reset();
+    m_transferGate.reset();
 
     m_moduleLPFs.each(reset);
     m_magnitudeLPFs.each(reset);
     m_deconvLPFs.each(reset);
     m_phaseLPFs.each(reset);
+    m_transferLPFs.each(reset);
 
     m_meters.each(reset);
     m_loopBuffer.reset();

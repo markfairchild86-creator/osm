@@ -19,6 +19,9 @@
 #define AVERAGING_H
 
 #include <queue>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include "complex.h"
 #include "container/fifo.h"
 #include "container/array.h"
@@ -87,6 +90,133 @@ public:
 
 protected:
     void checkDepth(unsigned int i);
+};
+
+/*
+ * One-pole (exponential) and infinite running averaging per frequency bin.
+ * Unlike Averaging, it has no history buffer: each new value is blended into
+ * the stored one, so the amount of smoothing is set by a time constant instead
+ * of a frame count.
+ */
+template<typename T> class TemporalAveraging
+{
+
+private:
+    Container::array<T> m_value;
+    Container::array<float> m_alpha;
+    Container::array<float> m_weight;
+    Container::array<unsigned int> m_count;
+    bool m_infinite;
+    unsigned int m_size;
+
+public:
+    TemporalAveraging():
+        m_value(),
+        m_alpha(),
+        m_weight(),
+        m_count(),
+        m_infinite(false),
+        m_size(0) {}
+
+    void setSize(unsigned int size)
+    {
+        m_size = size;
+        m_value.resize(m_size);
+        m_alpha.resize(m_size);
+        m_weight.resize(m_size);
+        m_count.resize(m_size);
+        m_alpha.fill(1.f);
+        reset();
+    }
+    unsigned int size() const
+    {
+        return m_size;
+    }
+
+    void setInfinite(bool infinite)
+    {
+        m_infinite = infinite;
+    }
+    bool infinite() const
+    {
+        return m_infinite;
+    }
+
+    /*
+     * per frame smoothing coefficient:
+     * 1 - no averaging, values closer to 0 give more smoothing
+     */
+    void setAlpha(unsigned int i, float alpha)
+    {
+        m_alpha[i] = std::max(0.0001f, std::min(1.f, alpha));
+    }
+    void setAlpha(float alpha)
+    {
+        for (unsigned int i = 0; i < m_size; ++i) {
+            setAlpha(i, alpha);
+        }
+    }
+
+    //! coefficient of the one-pole averager for a time constant and a frame interval, both in seconds
+    static float alphaFor(float timeConstant, float interval)
+    {
+        if (timeConstant <= 0.f) {
+            return 1.f;
+        }
+        return 1.f - std::exp(-interval / timeConstant);
+    }
+
+    T append(unsigned int i, const T &value)
+    {
+        return append(i, value, 1.f);
+    }
+
+    /*
+     * weight is in the range 0..1. A zero weight leaves the stored value
+     * untouched after the first value, which lets callers suppress bins with
+     * low coherence. The first value always seeds the bin.
+     */
+    T append(unsigned int i, const T &value, float weight)
+    {
+        if (!std::isfinite(weight)) {
+            weight = 0.f;
+        }
+        weight = std::max(0.f, std::min(1.f, weight));
+
+        // start from the first value instead of ramping up from zero
+        if (m_count[i] == 0) {
+            m_value[i] = value;
+            m_count[i] = 1;
+            m_weight[i] = 1.f;
+            return m_value[i];
+        }
+
+        if (m_infinite) {
+            const float totalWeight = m_weight[i] + weight;
+            if (weight > 0.f && totalWeight > 0.f) {
+                m_value[i] += (value - m_value[i]) * (weight / totalWeight);
+                m_weight[i] = totalWeight;
+            }
+            if (m_count[i] < std::numeric_limits<unsigned int>::max()) {
+                ++m_count[i];
+            }
+        } else if (weight > 0.f) {
+            m_value[i] += (value - m_value[i]) * m_alpha[i] * weight;
+        }
+        return m_value[i];
+    }
+
+    T value(unsigned int i) const
+    {
+        return m_value[i];
+    }
+
+    void reset()
+    {
+        m_value.fill(T(0));
+        m_weight.fill(0.f);
+        m_count.fill(0);
+    }
 };
 
 template<> void Averaging<unsigned int>::append(unsigned int i, const unsigned int &value);
