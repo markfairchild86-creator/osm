@@ -102,7 +102,7 @@ jobs:
 
           install -m 0755 build/OpenSoundMeter AppDir/usr/bin/OpenSoundMeter
           install -m 0644 OpenSoundMeter.desktop AppDir/usr/share/applications/OpenSoundMeter.desktop
-          install -m 0644 icons/white.png AppDir/usr/share/icons/hicolor/256x256/apps/white.png
+          install -m 0644 icons/white256.png AppDir/usr/share/icons/hicolor/256x256/apps/white.png
 
           curl -fsSL \
             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
