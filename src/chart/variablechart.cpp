@@ -45,42 +45,46 @@ VariableChart::VariableChart(QQuickItem *parent) :
 }
 void VariableChart::initType()
 {
+    Plot *oldPlot = m_plot;
+    Settings *plotSettings = typeSettings(m_selected);
+    const bool restored = plotSettings && plotSettings->value("type").isValid();
+
     Plot *newPlot = nullptr;
     switch (m_selected) {
     case RTA:
-        newPlot = new RTAPlot(m_settings, this);
+        newPlot = new RTAPlot(plotSettings, this);
         break;
 
     case Magnitude:
-        newPlot = new MagnitudePlot(m_settings, this);
+        newPlot = new MagnitudePlot(plotSettings, this);
         break;
 
     case Phase:
-        newPlot = new PhasePlot(m_settings, this);
+        newPlot = new PhasePlot(plotSettings, this);
         break;
 
     case Impulse:
-        newPlot = new ImpulsePlot(m_settings, this);
+        newPlot = new ImpulsePlot(plotSettings, this);
         break;
 
     case Step:
-        newPlot = new StepPlot(m_settings, this);
+        newPlot = new StepPlot(plotSettings, this);
         break;
 
     case Coherence:
-        newPlot = new CoherencePlot(m_settings, this);
+        newPlot = new CoherencePlot(plotSettings, this);
         break;
 
     case GroupDelay:
-        newPlot = new GroupDelayPlot(m_settings, this);
+        newPlot = new GroupDelayPlot(plotSettings, this);
         break;
 
     case PhaseDelay:
-        newPlot = new PhaseDelayPlot(m_settings, this);
+        newPlot = new PhaseDelayPlot(plotSettings, this);
         break;
 
     case Spectrogram:
-        newPlot = new SpectrogramPlot(m_settings, this);
+        newPlot = new SpectrogramPlot(plotSettings, this);
         newPlot->setSelectAppended(false);
         if (m_sources) {
             auto first = m_sources->firstSource();
@@ -89,15 +93,15 @@ void VariableChart::initType()
         break;
 
     case CrestFactor:
-        newPlot = new CrestFactorPlot(m_settings, this);
+        newPlot = new CrestFactorPlot(plotSettings, this);
         break;
 
     case Nyquist:
-        newPlot = new NyquistPlot(m_settings, this);
+        newPlot = new NyquistPlot(plotSettings, this);
         break;
 
     case Level:
-        newPlot = new LevelPlot(m_settings, this);
+        newPlot = new LevelPlot(plotSettings, this);
         break;
 
     case SPL:
@@ -111,23 +115,53 @@ void VariableChart::initType()
     if (newPlot) {
         newPlot->setParentItem(this);
         newPlot->setDarkMode(darkMode());
-        newPlot->inheritSettings(m_plot);
+        if (!restored && oldPlot) {
+            newPlot->inheritSettings(oldPlot);
+        }
     }
 
-    if (m_plot) {
-        if (newPlot && !qobject_cast<SpectrogramPlot *>(m_plot)) {
-            newPlot->setSelected(m_plot->selected());
+    if (oldPlot) {
+        oldPlot->storeSettings();
+
+        if (newPlot && !qobject_cast<SpectrogramPlot *>(oldPlot)) {
+            newPlot->setSelected(oldPlot->selected());
         }
 
-        m_plot->clear();
-        m_plot->disconnectFromParent();
-        m_plot->setParent(nullptr);
-        m_plot->setParentItem(nullptr);
-        m_plot->deleteLater();
-        if (newPlot) newPlot->storeSettings();
+        oldPlot->clear();
+        oldPlot->disconnectFromParent();
+        oldPlot->setParent(nullptr);
+        oldPlot->setParentItem(nullptr);
+        oldPlot->deleteLater();
+    }
+
+    if (newPlot && plotSettings) {
+        plotSettings->setValue("type", typeMap.at(m_selected));
+        newPlot->setSettings(plotSettings);
+        newPlot->storeSettings();
     }
 
     m_plot = newPlot;
+}
+
+Settings *VariableChart::typeSettings(const Type &type) noexcept
+{
+    if (!m_settings) {
+        return nullptr;
+    }
+
+    auto existing = m_typeSettings.find(type);
+    if (existing != m_typeSettings.end()) {
+        return existing.value();
+    }
+
+    auto name = typeMap.find(type);
+    if (name == typeMap.end()) {
+        return nullptr;
+    }
+
+    Settings *settings = m_settings->getSubGroup("/" + name->second);
+    m_typeSettings.insert(type, settings);
+    return settings;
 }
 QString VariableChart::typeString() const
 {
@@ -167,10 +201,21 @@ Settings *VariableChart::settings() const noexcept
 }
 void VariableChart::setSettings(Settings *settings) noexcept
 {
-    m_settings = settings;
-    if (m_plot) {
-        m_plot->setSettings(m_settings);
+    if (m_settings != settings) {
+        qDeleteAll(m_typeSettings);
+        m_typeSettings.clear();
+        m_settings = settings;
     }
+
+    if (!m_plot) {
+        return;
+    }
+
+    Settings *plotSettings = typeSettings(m_selected);
+    if (plotSettings) {
+        plotSettings->setValue("type", typeMap.at(m_selected));
+    }
+    m_plot->setSettings(plotSettings);
 }
 void VariableChart::removeDataSource(const Shared::Source &source)
 {

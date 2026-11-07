@@ -46,7 +46,7 @@ void CrestFactorPlot::setPointsPerOctave(unsigned int p)
 
 void CrestFactorPlot::setSettings(Settings *settings) noexcept
 {
-    if (settings && (settings->value("type") == "CrestFactor")) {
+    if (settings && (settings->value("type") == "Crest Factor")) {
         XYPlot::setSettings(settings);
 
         setPointsPerOctave(m_settings->reactValue<CrestFactorPlot, unsigned int>(
