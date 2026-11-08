@@ -38,6 +38,39 @@ QColor Source::color() const
 {
     return {};
 }
+
+QString Source::name() const
+{
+    return {};
+}
+
+unsigned int Source::sampleRate() const
+{
+    return 0;
+}
+
+void Data::lock()
+{
+}
+
+void Data::unlock()
+{
+}
+
+unsigned int Data::timeDomainSize() const noexcept
+{
+    return 0;
+}
+
+float Data::impulseTime(unsigned int) const noexcept
+{
+    return 0.f;
+}
+
+float Data::impulseValue(unsigned int) const noexcept
+{
+    return 0.f;
+}
 }
 
 SeriesesItem::SeriesesItem(QQuickItem *parent, Plot *plot) :
@@ -223,6 +256,11 @@ void SourceList::setSelected(int selected)
 Shared::Source SourceList::selected() const noexcept
 {
     return m_items.value(m_selected);
+}
+
+Shared::Source SourceList::get(int i) const noexcept
+{
+    return m_items.value(i);
 }
 
 QColor SourceList::highlightColor() const

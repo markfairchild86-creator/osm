@@ -28,6 +28,7 @@
 #include "crestfactorplot.h"
 #include "nyquistplot.h"
 #include "levelplot.h"
+#include "speechplot.h"
 #include "src/sourcelist.h"
 #include "source/group.h"
 
@@ -106,6 +107,10 @@ void VariableChart::initType()
 
     case SPL:
         newPlot = nullptr;
+        break;
+
+    case SpeechIntelligibility:
+        newPlot = new SpeechPlot(plotSettings, this);
         break;
 
     default:

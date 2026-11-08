@@ -1,10 +1,15 @@
 #include <QtTest>
 #include <QApplication>
+#include <QFile>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTemporaryDir>
+#include <QTextStream>
+#include <QUrl>
 
 #include "chart/variablechart.h"
 #include "common/settings.h"
+#include "common/weightingcurvestore.h"
 #include "common/workingfolder.h"
 
 class ChartSettingsTest : public QObject
@@ -19,6 +24,8 @@ private slots:
     void firstVisitInheritsFrequencyRange();
     void savedValuesSurviveNewChart();
     void typesWithSpecialNamesRestore();
+    void speechIntelligibilityTypeRestores();
+    void weightingFollowsRenameAndRemoval();
 
 private:
     QString testGroup(const char *name) const;
@@ -172,6 +179,60 @@ void ChartSettingsTest::typesWithSpecialNamesRestore()
 
     chart.setTypeByString("Group Delay");
     verifyRange(chart.plot(), 50.f, 14000.f, groupDelayYmin, groupDelayYmax);
+}
+
+void ChartSettingsTest::speechIntelligibilityTypeRestores()
+{
+    Settings settings(testGroup("speech_intelligibility"));
+    Chart::VariableChart chart;
+    chart.setSettings(&settings);
+    chart.setTypeByString(QStringLiteral("Speech Intelligibility"));
+
+    QCOMPARE(chart.typeString(), QStringLiteral("Speech Intelligibility"));
+    QVERIFY(chart.plot());
+    QVERIFY(!chart.plot()->property("valid").toBool());
+    QVERIFY(!chart.plot()->property("error").toString().isEmpty());
+
+    chart.setTypeByString(QStringLiteral("Magnitude"));
+    QCOMPARE(chart.typeString(), QStringLiteral("Magnitude"));
+    chart.setTypeByString(QStringLiteral("Speech Intelligibility"));
+    QCOMPARE(chart.typeString(), QStringLiteral("Speech Intelligibility"));
+}
+
+void ChartSettingsTest::weightingFollowsRenameAndRemoval()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    const QString path = directory.filePath(QStringLiteral("plot curve.txt"));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Text));
+    QTextStream stream(&file);
+    stream << "20, -18\n"
+           << "1000, 0\n"
+           << "20000, 3\n";
+    file.close();
+
+    WeightingCurveStore *store = WeightingCurveStore::instance();
+    const QString curve = store->importCurve(QUrl::fromLocalFile(path));
+    QCOMPARE(curve, QStringLiteral("plot curve"));
+
+    Settings settings(testGroup("weighting_follows"));
+    Chart::VariableChart chart;
+    chart.setTypeByString(QStringLiteral("Spectrum"));
+    chart.setSettings(&settings);
+    QObject *plot = chart.plot();
+    QVERIFY(plot);
+
+    plot->setProperty("curve", curve);
+    QCOMPARE(plot->property("curve").toString(), curve);
+
+    const QString renamed = store->renameCurve(curve, QStringLiteral("plot renamed"));
+    QCOMPARE(renamed, QStringLiteral("plot renamed"));
+    QCOMPARE(plot->property("curve").toString(), renamed);
+
+    QVERIFY(store->removeCurve(renamed));
+    QCOMPARE(plot->property("curve").toString(), QStringLiteral("Z"));
 }
 
 int main(int argc, char *argv[])

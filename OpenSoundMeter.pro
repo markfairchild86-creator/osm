@@ -38,6 +38,7 @@ SOURCES += src/main.cpp \
     src/chart/variablechart.cpp \
     src/chart/plot.cpp \
     src/chart/rtaplot.cpp \
+    src/chart/speechplot.cpp \
     src/chart/impulseplot.cpp \
     src/chart/phaseplot.cpp \
     src/chart/magnitudeplot.cpp \
@@ -52,6 +53,7 @@ SOURCES += src/main.cpp \
     src/common/notifier.cpp \
     src/common/profiler.cpp \
     src/common/settings.cpp \
+    src/common/weightingcurvestore.cpp \
     \
     src/filesystem/dialog.cpp \
     src/filesystem/dialogPlugin.cpp \
@@ -88,6 +90,8 @@ SOURCES += src/main.cpp \
     src/math/lowpassfilter.cpp \
     src/math/notch.cpp \
     src/math/weighting.cpp \
+    src/math/weightingcurve.cpp \
+    src/math/speechintelligibility.cpp \
     src/math/meter.cpp \
     src/math/coherence.cpp \
     src/math/averaging.cpp \
@@ -194,6 +198,7 @@ HEADERS += \
     src/common/autosaver.h \
     src/common/recentfilesmodel.h \
     src/common/wavfile.h \
+    src/common/weightingcurvestore.h \
     src/common/workingfolder.h \
     src/filesystem/dialog.h \
     src/filesystem/dialogPlugin.h \
@@ -225,6 +230,8 @@ HEADERS += \
     src/math/lowpassfilter.h \
     src/math/notch.h \
     src/math/weighting.h \
+    src/math/weightingcurve.h \
+    src/math/speechintelligibility.h \
     src/meta/metabase.h \
     src/meta/metafilter.h \
     src/meta/metagroup.h \
@@ -266,6 +273,7 @@ HEADERS += \
     src/chart/variablechart.h \
     src/chart/plot.h \
     src/chart/rtaplot.h \
+    src/chart/speechplot.h \
     src/chart/impulseplot.h \
     src/chart/phaseplot.h \
     src/chart/magnitudeplot.h \

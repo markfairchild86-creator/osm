@@ -1,4 +1,4 @@
-name: Qt averaging tests
+name: Qt tests
 
 on:
   push:
@@ -39,3 +39,132 @@ jobs:
       - name: Run averaging tests
         working-directory: build/tst_magnitudeaveraging
         run: make check
+
+  weighting:
+    name: Build and run QtTest weighting suite
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      QT_SELECT: qt5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            qtbase5-dev \
+            qtbase5-dev-tools \
+            qt5-qmake
+
+      - name: Build weighting tests
+        run: |
+          mkdir -p build/tst_weightingcurve
+          cd build/tst_weightingcurve
+          qmake "$GITHUB_WORKSPACE/tests/tst_weightingcurve.pro" CONFIG+=release
+          make -j"$(nproc)"
+
+      - name: Run weighting tests
+        working-directory: build/tst_weightingcurve
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: make check
+
+      - name: Build speech intelligibility tests
+        run: |
+          mkdir -p build/tst_speechintelligibility
+          cd build/tst_speechintelligibility
+          qmake "$GITHUB_WORKSPACE/tests/tst_speechintelligibility.pro" CONFIG+=release
+          make -j"$(nproc)"
+
+      - name: Run speech intelligibility tests
+        working-directory: build/tst_speechintelligibility
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: make check
+
+  weighting-platforms:
+    name: Build and run QtTest weighting suite (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-2022
+            qt_host: windows
+            qt_arch: win64_mingw81
+            qt_tools: 'tools_mingw,qt.tools.win64_mingw810'
+          - name: macOS
+            os: macos-15-intel
+            qt_host: mac
+            qt_arch: clang_64
+            qt_tools: ''
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          host: ${{ matrix.qt_host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          tools: ${{ matrix.qt_tools }}
+          cache: true
+
+      - name: Build weighting tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/tst_weightingcurve
+          cd build/tst_weightingcurve
+          qmake "$GITHUB_WORKSPACE/tests/tst_weightingcurve.pro" CONFIG+=release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make -j"$NUMBER_OF_PROCESSORS"
+          else
+            make -j"$(sysctl -n hw.logicalcpu)"
+          fi
+
+      - name: Run weighting tests
+        shell: bash
+        working-directory: build/tst_weightingcurve
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make check
+          else
+            make check
+          fi
+
+      - name: Build speech intelligibility tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/tst_speechintelligibility
+          cd build/tst_speechintelligibility
+          qmake "$GITHUB_WORKSPACE/tests/tst_speechintelligibility.pro" CONFIG+=release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make -j"$NUMBER_OF_PROCESSORS"
+          else
+            make -j"$(sysctl -n hw.logicalcpu)"
+          fi
+
+      - name: Run speech intelligibility tests
+        shell: bash
+        working-directory: build/tst_speechintelligibility
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make check
+          else
+            make check
+          fi

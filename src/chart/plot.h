@@ -41,7 +41,7 @@ class Plot : public QQuickItem
 
 public:
     explicit Plot(Settings *settings, QQuickItem *parent);
-    void connectSources(SourceList *sourceList);
+    virtual void connectSources(SourceList *sourceList);
 
     void clear();
     void disconnectFromParent();

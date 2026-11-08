@@ -16,6 +16,13 @@ title: User support. Open Sound Meter
             Or download <a class="download pdf" href="https://github.com/psmokotnin/osm/releases/download/{{site.current_version}}/overview.pdf" target="_blank">PDF overview</a> with the same information. 
     </p>
     
+    <h2 class="display-5 pt-md-5">Custom weighting curves</h2>
+    <p class="lead">
+        RTA and Magnitude plots can import custom frequency-weighting curves from text files.
+        See the <a href="/weighting-curves">weighting-curve format guide</a> and the
+        <a href="/examples/weighting-curve.txt" download>ready-to-edit example</a>.
+    </p>
+
     <h2 class="display-5 pt-md-5">Questions and issues</h2>
     <p class="lead">
         <p>

@@ -21,6 +21,7 @@
 
 #include "frequencybasedseriesrenderer.h"
 #include "../magnitudeplot.h"
+#include "math/weightingcurve.h"
 
 namespace Chart {
 
@@ -38,6 +39,7 @@ private:
     float m_coherenceThreshold, m_sensor;
     bool m_coherence, m_invert;
     MagnitudePlot::Mode m_mode;
+    Math::WeightingCurve m_weightingCurve;
 };
 }
 #endif // MAGNITUDESERIESRENDERER_H

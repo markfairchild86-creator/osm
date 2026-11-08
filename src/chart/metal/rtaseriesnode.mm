@@ -117,6 +117,9 @@ void RTASeriesNode::synchronizeSeries()
         if (m_scale != rtaPlot->scale()) {
             m_scale = rtaPlot->scale();
         }
+        if (m_weightingCurve.name() != rtaPlot->curveName()) {
+            m_weightingCurve = rtaPlot->weightingCurve();
+        }
         m_showPeaks = rtaPlot->showPeaks();
     }
     synchronizeMatrix();
@@ -214,7 +217,12 @@ void RTASeriesNode::renderLine()
             if (i == 0) {
                 return ;
             }
-            value += m_source->module(i) * m_source->module(i);
+            const float module = m_source->module(i);
+            float weight = 1.f;
+            if (m_scale != RTAPlot::Scale::Phon) {
+                weight = std::pow(10.f, m_weightingCurve.gain(m_source->frequency(i)) / 10.f);
+            }
+            value += module * module * weight;
         };
         unsigned int i = 0;
         auto collected = [ &, this] (const float & start, const float & end, const unsigned int &count) {
@@ -245,6 +253,9 @@ void RTASeriesNode::renderLine()
             if (m_scale == RTAPlot::Scale::Phon) {
                 value1 = elc.phone(m_source->frequency(i), value1 + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
                 value2 = elc.phone(m_source->frequency(i), value2 + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+            } else {
+                value1 += m_weightingCurve.gain(m_source->frequency(i));
+                value2 += m_weightingCurve.gain(m_source->frequency(i + 1));
             }
             addSegment(j,
                        m_source->frequency(i),     value1,
@@ -314,8 +325,13 @@ void RTASeriesNode::renderBars()
         if (i == 0) {
             return ;
         }
-        value += m_source->module(i) * m_source->module(i);
-        peak = std::max(peak, m_source->peakSquared(i));
+        const float module = m_source->module(i);
+        float weight = 1.f;
+        if (m_scale != RTAPlot::Scale::Phon) {
+            weight = std::pow(10.f, m_weightingCurve.gain(m_source->frequency(i)) / 10.f);
+        }
+        value += module * module * weight;
+        peak = std::max(peak, m_source->peakSquared(i) * weight);
     };
 
     unsigned int i = 0;
@@ -465,6 +481,8 @@ void RTASeriesNode::renderLines()
         auto value = 20 * log10f(m_source->module(i)) + offset;
         if (m_scale == RTAPlot::Scale::Phon) {
             value = elc.phone(m_source->frequency(i), value + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+        } else {
+            value += m_weightingCurve.gain(m_source->frequency(i));
         }
 
         addSegment(j,
@@ -476,6 +494,8 @@ void RTASeriesNode::renderLines()
             peak = 10 * log10f(m_source->peakSquared(i)) + offset;
             if (m_scale == RTAPlot::Scale::Phon) {
                 peak = elc.phone(m_source->frequency(i), peak + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+            } else {
+                peak += m_weightingCurve.gain(m_source->frequency(i));
             }
             addSegment(j,
                        m_source->frequency(i), peak,

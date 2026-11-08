@@ -19,6 +19,8 @@
 #define FREQUENCYBASEDPLOT_H
 
 #include "xyplot.h"
+#include "math/weightingcurve.h"
+#include <QUrl>
 namespace Chart {
 class FrequencyBasedPlot : public XYPlot
 {
@@ -28,6 +30,10 @@ class FrequencyBasedPlot : public XYPlot
     Q_PROPERTY(bool coherence READ coherence WRITE setCoherence NOTIFY coherenceChanged)
     Q_PROPERTY(float coherenceThreshold READ coherenceThreshold WRITE setCoherenceThreshold NOTIFY
                coherenceThresholdChanged)
+    Q_PROPERTY(QVariant availableCurves READ getAvailableCurves NOTIFY availableCurvesChanged)
+    Q_PROPERTY(QVariant customCurves READ getCustomCurves NOTIFY availableCurvesChanged)
+    Q_PROPERTY(QString curve READ curveName WRITE setCurve NOTIFY curveChanged)
+    Q_PROPERTY(QString curveError READ curveError NOTIFY curveErrorChanged)
 
 public:
     FrequencyBasedPlot(Settings *settings, QQuickItem *parent = Q_NULLPTR);
@@ -44,10 +50,23 @@ public:
     float coherenceThreshold() const noexcept;
     void setCoherenceThreshold(float coherenceThreshold) noexcept;
 
+    QVariant getAvailableCurves() const;
+    QVariant getCustomCurves() const;
+    QString curveName() const;
+    void setCurve(const QString &curve);
+    const Math::WeightingCurve &weightingCurve() const noexcept;
+    Q_INVOKABLE QString importCurve(const QUrl &url);
+    Q_INVOKABLE QString renameCurve(const QString &oldName, const QString &newName);
+    Q_INVOKABLE bool removeCurve(const QString &name);
+    QString curveError() const;
+
 signals:
     void pointsPerOctaveChanged(unsigned int);
     void coherenceChanged(bool);
     void coherenceThresholdChanged(float);
+    void availableCurvesChanged();
+    void curveChanged(QString);
+    void curveErrorChanged();
 
 protected:
     void configureXAxis();
@@ -56,6 +75,11 @@ protected:
     unsigned int m_pointsPerOctave;
     float m_coherenceThreshold;
     bool m_coherence;
+    Math::WeightingCurve m_weightingCurve;
+    QString m_curveError;
+
+private:
+    void setCurveError(const QString &error);
 };
 }
 #endif // FREQUENCYBASEDPLOT_H

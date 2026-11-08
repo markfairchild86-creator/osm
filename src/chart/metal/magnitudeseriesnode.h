@@ -21,6 +21,7 @@
 #include "xyseriesnode.h"
 #include "../frequencybasedserieshelper.h"
 #include "../magnitudeplot.h"
+#include "math/weightingcurve.h"
 
 namespace Chart {
 
@@ -48,6 +49,7 @@ private:
     void *m_pipeline;
 
     MagnitudePlot::Mode m_mode;
+    Math::WeightingCurve m_weightingCurve;
 };
 }
 #endif // CHART_MAGNITUDESERIESNODE_H

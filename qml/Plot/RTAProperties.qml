@@ -203,6 +203,36 @@ Item {
                 }
             }
 
+            TitledCombo {
+                id: weighting
+                implicitWidth: 160
+                title: qsTr("weighting")
+                tooltip: qsTr("frequency weighting curve (phons mode is unweighted)")
+                model: dataObject.availableCurves
+                currentIndex: model.indexOf(dataObject.curve)
+                onCurrentIndexChanged: {
+                    if (currentIndex >= 0) {
+                        dataObject.curve = model[currentIndex];
+                    }
+                }
+            }
+
+            Button {
+                text: qsTr("load")
+                implicitWidth: 58
+                onClicked: weightingDialog.open()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("import a custom weighting curve")
+            }
+
+            Button {
+                text: qsTr("manage")
+                implicitWidth: 66
+                onClicked: weightingManager.open()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("rename or remove imported weighting curves")
+            }
+
             CheckBox {
                 id: peaks
                 text: qsTr("hold peaks")
@@ -238,6 +268,27 @@ Item {
                         result.saveToFile(dataObject.parent.urlForGrab(fileDialog.fileUrl));
                     });
                 }
+            }
+
+            FileDialog {
+                id: weightingDialog
+                selectExisting: true
+                title: qsTr("Import weighting curve")
+                folder: (typeof shortcuts !== 'undefined' ? shortcuts.home : Filesystem.StandardFolder.Home)
+                nameFilters: [qsTr("Weighting curves (*.txt *.csv *.cal)"), qsTr("All files (*)")]
+                onAccepted: {
+                    var curveName = dataObject.importCurve(fileUrl);
+                    if (curveName) {
+                        dataObject.curve = curveName;
+                    } else {
+                        applicationWindow.message.showError(dataObject.curveError);
+                    }
+                }
+            }
+
+            WeightingCurveManager {
+                id: weightingManager
+                dataObject: chartProperties.dataObject
             }
         }
     }

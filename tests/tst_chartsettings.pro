@@ -39,17 +39,21 @@ SOURCES += \
     ../src/chart/phaseplot.cpp \
     ../src/chart/plot.cpp \
     ../src/chart/rtaplot.cpp \
+    ../src/chart/speechplot.cpp \
     ../src/chart/spectrogramplot.cpp \
     ../src/chart/stepplot.cpp \
     ../src/chart/variablechart.cpp \
     ../src/chart/xyplot.cpp \
     ../src/common/settings.cpp \
+    ../src/common/weightingcurvestore.cpp \
     ../src/common/workingfolder.cpp \
     ../src/math/biquad.cpp \
     ../src/math/integration_tree.cpp \
     ../src/math/leq.cpp \
     ../src/math/meter.cpp \
+    ../src/math/speechintelligibility.cpp \
     ../src/math/weighting.cpp \
+    ../src/math/weightingcurve.cpp \
     ../src/shared/source_shared.cpp \
     ../src/targettrace.cpp
 
@@ -71,11 +75,15 @@ HEADERS += \
     ../src/chart/phaseplot.h \
     ../src/chart/plot.h \
     ../src/chart/rtaplot.h \
+    ../src/chart/speechplot.h \
     ../src/chart/seriesesitem.h \
     ../src/chart/spectrogramplot.h \
     ../src/chart/stepplot.h \
     ../src/chart/variablechart.h \
     ../src/chart/xyplot.h \
     ../src/common/settings.h \
+    ../src/common/weightingcurvestore.h \
+    ../src/math/weightingcurve.h \
+    ../src/math/speechintelligibility.h \
     ../src/shared/source_shared.h \
     ../src/targettrace.h

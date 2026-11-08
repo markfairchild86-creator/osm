@@ -11,6 +11,10 @@ Current version: v1.4.1
 
 Qt5.15 C++17
 
+## Custom weighting curves
+
+RTA and Magnitude plots can import custom weighting curves from `.txt`, `.csv`, or `.cal` files. See the [file-format guide](docs/weighting-curves.md) and the [ready-to-edit example](docs/examples/weighting-curve.txt).
+
 
 ## SAST Tools
 

@@ -1,0 +1,44 @@
+# Open Sound Meter custom weighting curve
+#
+# Column 1: frequency in Hz (must be greater than zero)
+# Column 2: gain in dB
+#
+# This is an illustrative starting point, not a calibrated correction
+# or a standard weighting curve. Replace the points with your own curve.
+# At least two valid points are required.
+#
+# Lines beginning with # or * are comments. Inline comments can start
+# with # or //. Commas, semicolons, or whitespace may separate columns.
+#
+# Frequency (Hz), Gain (dB)
+20, -18.0
+25, -16.0
+31.5, -14.5
+40, -12.5
+50, -10.5
+63, -8.5
+80, -6.5
+100, -5.0
+125, -3.5
+160, -2.0
+200, -1.0
+250, -0.5
+315, 0.0
+400, 0.0
+500, 0.0
+630, 0.0
+800, 0.0
+1000, 0.0
+1250, 0.0
+1600, 0.0
+2000, 0.0
+2500, 0.0
+3150, 0.0
+4000, 0.0
+5000, 0.0
+6300, 0.0
+8000, 0.0
+10000, 0.0
+12500, 0.0
+16000, 0.0
+20000, 0.0
