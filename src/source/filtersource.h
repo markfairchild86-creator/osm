@@ -33,6 +33,7 @@ class FilterSource : public Abstract::Source, public Meta::Filter
     Q_PROPERTY(bool autoName READ autoName WRITE setAutoName NOTIFY autoNameChanged)
 
     Q_PROPERTY(Meta::Measurement::Mode mode READ mode WRITE setMode NOTIFY modeChanged)
+    Q_PROPERTY(unsigned int logWindowPointsPerOctave READ logWindowPointsPerOctave WRITE setLogWindowPointsPerOctave NOTIFY logWindowPointsPerOctaveChanged)
 
     Q_PROPERTY(QVariant orders READ getAvailableOrders NOTIFY typeChanged)
     Q_PROPERTY(Meta::Filter::Type type READ type WRITE setType NOTIFY typeChanged)
@@ -60,9 +61,13 @@ public:
     bool autoName() const;
     void setAutoName(bool newAutoName);
 
+    unsigned int logWindowPointsPerOctave() const;
+    void setLogWindowPointsPerOctave(unsigned int pointsPerOctave);
+
 signals:
     void typeChanged(Meta::Filter::Type) override;
     void modeChanged(Meta::Measurement::Mode) override;
+    void logWindowPointsPerOctaveChanged(unsigned int);
     void cornerFrequencyChanged(float) override;
     void orderChanged(unsigned int) override;
     void gainChanged(float) override;

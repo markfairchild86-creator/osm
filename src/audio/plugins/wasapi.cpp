@@ -24,8 +24,15 @@
 #include <functiondiscoverykeys.h>
 #include <QThread>
 #include <QCoreApplication>
+#include <cmath>
+
+#ifndef AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM
+#define AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM 0x80000000
+#endif
 
 namespace audio {
+
+static const GUID IEEE_FLOAT_SUBFORMAT = {0x00000003, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71}};
 
 bool checkStatus(HRESULT result, QString message = "", std::list<HRESULT> goodStatuses = {S_OK});
 # define checkCall(foo, returnval, message) \
@@ -265,7 +272,7 @@ Stream *WasapiPlugin::open(const DeviceInfo::Id &id, const Plugin::Direction &mo
         //formatEx->Format.cbSize = 22;
 
         formatEx->Samples.wValidBitsPerSample = 32;
-        formatEx->SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+        formatEx->SubFormat = IEEE_FLOAT_SUBFORMAT;
     }
 
     REFERENCE_TIME defaultPeriod;

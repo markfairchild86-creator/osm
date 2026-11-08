@@ -43,10 +43,23 @@ Item {
             DropDown {
                 id: averageType
                 Layout.preferredWidth: elementWidth
-                model: ["off", "LPF", "FIFO"]
+                model: ["off", "LPF", "FIFO", "Fast", "Slow", "Inf", "Prog"]
                 currentIndex: dataObjectData.averageType
+                displayText: dataObjectData.averageType === Measurement.Progressive
+                             ? qsTr("Prog %1").arg(dataObjectData.averageDepth)
+                             : currentText
                 ToolTip.visible: hovered
-                ToolTip.text: qsTr("average type")
+                ToolTip.text: {
+                    if (dataObjectData.averageType === Measurement.Fast)
+                        return qsTr("exponential average: 125 ms");
+                    if (dataObjectData.averageType === Measurement.Slow)
+                        return qsTr("exponential average: 1 s");
+                    if (dataObjectData.averageType === Measurement.Infinite)
+                        return qsTr("infinite average since last reset");
+                    if (dataObjectData.averageType === Measurement.Progressive)
+                        return qsTr("progressive average: equal decay at all frequencies");
+                    return qsTr("average type");
+                }
                 onCurrentIndexChanged: dataObjectData.averageType = currentIndex;
             }
 
@@ -64,6 +77,20 @@ Item {
                 visible: dataObjectData.averageType === Measurement.FIFO;
             }
 
+            SelectableSpinBox {
+                Layout.preferredWidth: elementWidth
+                value: dataObjectData.averageDepth
+                from: 1
+                to: 10
+                editable: true
+                onValueChanged: dataObjectData.averageDepth = value
+
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("progressive average depth (1-10)")
+
+                visible: dataObjectData.averageType === Measurement.Progressive;
+            }
+
             DropDown {
                 Layout.preferredWidth: elementWidth
                 model: [ "0.25Hz", "0.5Hz", "1Hz" ]
@@ -76,9 +103,44 @@ Item {
                 visible: dataObjectData.averageType === Measurement.LPF;
             }
 
-            Rectangle {
+            CheckBox {
+                id: coherenceWeighting
                 Layout.preferredWidth: elementWidth
-                visible: dataObjectData.averageType === Measurement.OFF;
+                text: qsTr("coh")
+                checked: dataObjectData.coherenceWeighting
+                onCheckedChanged: dataObjectData.coherenceWeighting = checked
+
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("coherence weighting: low-coherence bins contribute less")
+            }
+
+            FloatSpinBox {
+                id: coherenceExponent
+                Layout.preferredWidth: spinboxWidth
+                value: dataObjectData.coherenceExponent
+                from: 0.25
+                to: 4.0
+                step: 0.25
+                decimals: 2
+                indicators: false
+                visible: coherenceWeighting.checked
+                onValueChanged: dataObjectData.coherenceExponent = value
+                tooltiptext: qsTr("coherence exponent: higher values suppress low-coherence bins more")
+                implicitHeight: coherenceWeighting.implicitHeight
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            CheckBox {
+                id: vectorMagnitudeAveraging
+                Layout.preferredWidth: elementWidth
+                text: qsTr("vector")
+                checked: dataObjectData.magnitudeAverageType === Measurement.Vector
+                onCheckedChanged: dataObjectData.magnitudeAverageType = checked
+                                      ? Measurement.Vector
+                                      : Measurement.Polar
+
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("magnitude averaging: Polar (RMS) / Vector (complex); phase is always complex-averaged")
             }
 
             Button {
@@ -297,6 +359,28 @@ Item {
                 ToolTip.text: qsTr("Transfrom mode")
                 onCurrentIndexChanged: dataObjectData.mode = currentIndex;
                 Layout.preferredWidth: elementWidth
+            }
+
+            SelectableSpinBox {
+                id: logWindowPointsPerOctave
+                Layout.preferredWidth: elementWidth
+                value: dataObjectData.logWindowPointsPerOctave
+                from: 1
+                to: 96
+                editable: true
+                visible: dataObjectData.mode === Measurement.LFT
+                onValueChanged: dataObjectData.logWindowPointsPerOctave = value
+
+                textFromValue: function(value, locale) {
+                    return value + " ppo";
+                }
+
+                valueFromText: function(text, locale) {
+                    return parseInt(text);
+                }
+
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("LTW time-window points per octave (1-96)")
             }
 
             DropDown {

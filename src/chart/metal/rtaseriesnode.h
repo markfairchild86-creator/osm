@@ -22,6 +22,7 @@
 #include "xyseriesnode.h"
 #include "../frequencybasedserieshelper.h"
 #include "../rtaplot.h"
+#include "math/weightingcurve.h"
 
 namespace Chart {
 
@@ -48,6 +49,7 @@ private:
     unsigned int m_pointsPerOctave;
     RTAPlot::Mode m_mode;
     RTAPlot::Scale m_scale;
+    Math::WeightingCurve m_weightingCurve;
     static constexpr float absolute_scale_offset = 140.f;
 
     bool m_refreshBuffers, m_showPeaks;

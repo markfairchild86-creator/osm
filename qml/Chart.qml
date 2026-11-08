@@ -123,6 +123,9 @@ Item {
             case "Level":
                 opener.propertiesQml = "qrc:/Plot/LevelProperties.qml";
                 break;
+            case "Speech Intelligibility":
+                opener.propertiesQml = "qrc:/Plot/SpeechIntelligibilityProperties.qml";
+                break;
             }
         }
     }
@@ -305,6 +308,7 @@ Item {
                         break
                     case "Nyquist":
                     case "Level":
+                    case "Speech Intelligibility":
                         return;
                 }
                 applicationWindow.properiesbar.open(obj, "qrc:/Calculator.qml");
@@ -328,7 +332,7 @@ Item {
         yBottom: cursorY + applicationAppearance.cursorOffset + cursor.height / 2
         x: xRight < parent.width  - width  - 50 ? xRight : xLeft
         y: yTop   < 2 * height ? yBottom : yTop + 30 + height / 2 > parent.height ? yTop - height : yTop
-        visible: chart.plot && opener.containsMouse
+        visible: chart.plot && chart.type !== "Speech Intelligibility" && opener.containsMouse
 
         Label {
             id: cursorText
@@ -391,8 +395,8 @@ Item {
         implicitHeight: Material.buttonHeight
         background: null
         model: applicationAppearance.experimentFunctions ?
-                   ["Spectrum", "Magnitude", "Phase", "Impulse", "Step", "Coherence", "Group Delay", "Phase Delay", "Spectrogram", "Level", "Numeric", "Crest Factor", "Nyquist"] :
-                   ["Spectrum", "Magnitude", "Phase", "Impulse", "Step", "Coherence", "Group Delay", "Spectrogram", "Level", "Numeric"]
+                   ["Spectrum", "Magnitude", "Phase", "Impulse", "Step", "Coherence", "Group Delay", "Phase Delay", "Spectrogram", "Level", "Numeric", "Crest Factor", "Nyquist", "Speech Intelligibility"] :
+                   ["Spectrum", "Magnitude", "Phase", "Impulse", "Step", "Coherence", "Group Delay", "Spectrogram", "Level", "Numeric", "Speech Intelligibility"]
         currentIndex: model.indexOf(type)
         onCurrentIndexChanged: {
             var pb = applicationWindow.properiesbar;

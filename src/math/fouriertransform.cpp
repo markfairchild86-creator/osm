@@ -17,6 +17,8 @@
  */
 #include "fouriertransform.h"
 #include <QtMath>
+#include <algorithm>
+#include <cmath>
 #ifndef USE_SSE2
 #define USE_SSE2
 #endif
@@ -26,6 +28,7 @@ FourierTransform::FourierTransform(unsigned int size):
     m_pointer(0),
     m_sampleRate(1),
     m_logWindowDenominator(1),
+    m_logWindowPointsPerOctave(DefaultLogWindowPointsPerOctave),
     m_type(Fast),
     m_window(WindowFunction::Rectangular),
     m_inA(m_size, 0.f),
@@ -149,6 +152,27 @@ void FourierTransform::setAlign(Align newAlign)
 void FourierTransform::setLogWindowDenominator(unsigned int newLogWindowDenominator)
 {
     m_logWindowDenominator = newLogWindowDenominator;
+}
+
+void FourierTransform::setLogWindowPointsPerOctave(unsigned int pointsPerOctave)
+{
+    if (pointsPerOctave < MinLogWindowPointsPerOctave) {
+        pointsPerOctave = MinLogWindowPointsPerOctave;
+    }
+    if (pointsPerOctave > MaxLogWindowPointsPerOctave) {
+        pointsPerOctave = MaxLogWindowPointsPerOctave;
+    }
+    m_logWindowPointsPerOctave = pointsPerOctave;
+}
+
+unsigned int FourierTransform::logWindowPointsPerOctave() const
+{
+    return m_logWindowPointsPerOctave;
+}
+
+unsigned int FourierTransform::logWindowLength(unsigned int i) const
+{
+    return m_logBasis[i].N;
 }
 
 long FourierTransform::f2i(double frequency, int sampleRate) const
@@ -464,15 +488,21 @@ GNU_ALIGN void FourierTransform::log()
 GNU_ALIGN void FourierTransform::prepareLog()
 {
     Complex w;
-    const int ppo = 24, octaves = 11;
+    const float frequencyRatio = 1000.f;
+    const float octaves = std::log2(frequencyRatio);
+    const unsigned int ppo = m_logWindowPointsPerOctave;
+    // The grid spans a fixed frequency range; use intervals for spacing and add
+    // the final point so the top of the range does not depend on the ppo setting.
+    const unsigned int intervals = std::max(1u, static_cast<unsigned int>(std::lround(ppo * octaves)));
+    const unsigned int bins = intervals + 1;
     unsigned int startWindow = pow(2, 16), startOffset = 1'344'000 / sampleRate(); // 28 for 48k
-    float wFactor = powf(10.f, 1.f / (-octaves * ppo / 2.5));
-    float fFactor = powf(1000.f, 1.f / (ppo * octaves));
+    const float fFactor = powf(frequencyRatio, 1.f / intervals);
+    const float wFactor = powf(fFactor, -5.f / 6.f);
     unsigned int N, offset;
     float frequency;
-    m_logBasis.resize(ppo * octaves);
-    m_fastA.resize(ppo * octaves);
-    m_fastB.resize(ppo * octaves);
+    m_logBasis.resize(bins);
+    m_fastA.resize(bins);
+    m_fastB.resize(bins);
     setSize(startWindow);
 
     for (unsigned int i = 0; i < m_logBasis.size(); ++i) {

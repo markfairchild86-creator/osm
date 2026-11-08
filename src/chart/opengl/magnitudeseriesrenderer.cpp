@@ -66,6 +66,9 @@ void MagnitudeSeriesRenderer::synchronize(QQuickFramebufferObject *item)
         m_mode               = plot->mode();
         m_sensor             = plot->sensor();
         m_coherenceThreshold = plot->coherenceThreshold();
+        if (m_weightingCurve.name() != plot->curveName()) {
+            m_weightingCurve = plot->weightingCurve();
+        }
     }
 }
 void MagnitudeSeriesRenderer::renderSeries()
@@ -99,7 +102,8 @@ void MagnitudeSeriesRenderer::renderSeries()
             break;
 
         case MagnitudePlot::Mode::dB:
-            value += (m_invert ? -1 : 1) * m_source->magnitude(i);
+            value += (m_invert ? -1 : 1) * (m_source->magnitude(i) +
+                                            m_weightingCurve.gain(m_source->frequency(i)));
             break;
         }
     };

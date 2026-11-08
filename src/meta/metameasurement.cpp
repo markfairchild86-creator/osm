@@ -17,6 +17,8 @@
  */
 #include "metameasurement.h"
 
+#include <cmath>
+
 namespace Meta {
 
 const std::map<Measurement::Mode, QString>Measurement::m_modeMap = {
@@ -52,15 +54,21 @@ Measurement::Measurement() : Base(),
     m_gain(1.f), m_offset(1.f),
     m_dataChanel(0), m_referenceChanel(1), m_delay(0),
     m_average(1),
+    m_averageDepth(6),
     m_mode(FFT14),
     m_inputFilter(InputFilter::Z),
     m_averageType(AverageType::LPF),
+    m_magnitudeAverageType(MagnitudeAverageType::Polar),
+    m_coherenceWeighting(false),
+    m_coherenceExponent(1.f),
+    m_logWindowPointsPerOctave(24),
     m_filtersFrequency(Filter::Frequency::FourthHz),
     m_windowFunctionType(WindowFunction::Type::Hann)
 {
     qRegisterMetaType<Filter::Frequency>();
     qRegisterMetaType<Meta::Measurement::Mode>();
     qRegisterMetaType<Meta::Measurement::AverageType>();
+    qRegisterMetaType<Meta::Measurement::MagnitudeAverageType>();
     qRegisterMetaType<Meta::Measurement::InputFilter>();
     qRegisterMetaType<WindowFunction::Type>();
 }
@@ -212,6 +220,110 @@ void Measurement::setAverage(unsigned int average)
     if (m_average != average) {
         m_average = average;
         emit averageChanged(m_average);
+    }
+}
+
+unsigned int Measurement::averageDepth() const
+{
+    return m_averageDepth;
+}
+
+void Measurement::setAverageDepth(unsigned int averageDepth)
+{
+    if (m_averageDepth != averageDepth) {
+        m_averageDepth = averageDepth;
+        emit averageDepthChanged(m_averageDepth);
+    }
+}
+
+Measurement::MagnitudeAverageType Measurement::magnitudeAverageType() const
+{
+    return m_magnitudeAverageType;
+}
+
+void Measurement::setMagnitudeAverageType(const MagnitudeAverageType &type)
+{
+    const MagnitudeAverageType normalized = (type == Vector) ? Vector : Polar;
+    if (m_magnitudeAverageType != normalized) {
+        m_magnitudeAverageType = normalized;
+        emit magnitudeAverageTypeChanged(m_magnitudeAverageType);
+    }
+}
+
+void Measurement::setMagnitudeAverageType(QVariant type)
+{
+    setMagnitudeAverageType(static_cast<MagnitudeAverageType>(type.toInt()));
+}
+
+bool Measurement::coherenceWeighting() const
+{
+    return m_coherenceWeighting;
+}
+
+void Measurement::setCoherenceWeighting(bool weighting)
+{
+    if (m_coherenceWeighting != weighting) {
+        m_coherenceWeighting = weighting;
+        emit coherenceWeightingChanged(m_coherenceWeighting);
+    }
+}
+
+float Measurement::coherenceExponent() const
+{
+    return m_coherenceExponent;
+}
+
+void Measurement::setCoherenceExponent(float exponent)
+{
+    exponent = clampCoherenceExponent(exponent);
+    if (!qFuzzyCompare(m_coherenceExponent, exponent)) {
+        m_coherenceExponent = exponent;
+        emit coherenceExponentChanged(m_coherenceExponent);
+    }
+}
+
+const char *Measurement::coherenceExponentSettingsKey() noexcept
+{
+    return "average/coherenceExponent";
+}
+
+float Measurement::clampCoherenceExponent(float exponent) noexcept
+{
+    if (!std::isfinite(exponent)) {
+        return DEFAULT_COHERENCE_EXPONENT;
+    }
+    return qBound(MIN_COHERENCE_EXPONENT, exponent, MAX_COHERENCE_EXPONENT);
+}
+
+float Measurement::coherenceWeight(float coherence, float exponent) noexcept
+{
+    if (!std::isfinite(coherence)) {
+        coherence = 0.f;
+    }
+    coherence = qBound(0.f, coherence, 1.f);
+    exponent = clampCoherenceExponent(exponent);
+    if (qFuzzyCompare(exponent, DEFAULT_COHERENCE_EXPONENT)) {
+        return coherence;
+    }
+    return std::pow(coherence, exponent);
+}
+
+unsigned int Measurement::logWindowPointsPerOctave() const
+{
+    return m_logWindowPointsPerOctave;
+}
+
+void Measurement::setLogWindowPointsPerOctave(unsigned int pointsPerOctave)
+{
+    if (pointsPerOctave < 1) {
+        pointsPerOctave = 1;
+    }
+    if (pointsPerOctave > 96) {
+        pointsPerOctave = 96;
+    }
+    if (m_logWindowPointsPerOctave != pointsPerOctave) {
+        m_logWindowPointsPerOctave = pointsPerOctave;
+        emit logWindowPointsPerOctaveChanged(m_logWindowPointsPerOctave);
     }
 }
 

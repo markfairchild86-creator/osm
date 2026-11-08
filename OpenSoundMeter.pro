@@ -38,6 +38,7 @@ SOURCES += src/main.cpp \
     src/chart/variablechart.cpp \
     src/chart/plot.cpp \
     src/chart/rtaplot.cpp \
+    src/chart/speechplot.cpp \
     src/chart/impulseplot.cpp \
     src/chart/phaseplot.cpp \
     src/chart/magnitudeplot.cpp \
@@ -52,6 +53,7 @@ SOURCES += src/main.cpp \
     src/common/notifier.cpp \
     src/common/profiler.cpp \
     src/common/settings.cpp \
+    src/common/weightingcurvestore.cpp \
     \
     src/filesystem/dialog.cpp \
     src/filesystem/dialogPlugin.cpp \
@@ -88,6 +90,8 @@ SOURCES += src/main.cpp \
     src/math/lowpassfilter.cpp \
     src/math/notch.cpp \
     src/math/weighting.cpp \
+    src/math/weightingcurve.cpp \
+    src/math/speechintelligibility.cpp \
     src/math/meter.cpp \
     src/math/coherence.cpp \
     src/math/averaging.cpp \
@@ -194,6 +198,7 @@ HEADERS += \
     src/common/autosaver.h \
     src/common/recentfilesmodel.h \
     src/common/wavfile.h \
+    src/common/weightingcurvestore.h \
     src/common/workingfolder.h \
     src/filesystem/dialog.h \
     src/filesystem/dialogPlugin.h \
@@ -225,6 +230,8 @@ HEADERS += \
     src/math/lowpassfilter.h \
     src/math/notch.h \
     src/math/weighting.h \
+    src/math/weightingcurve.h \
+    src/math/speechintelligibility.h \
     src/meta/metabase.h \
     src/meta/metafilter.h \
     src/meta/metagroup.h \
@@ -266,6 +273,7 @@ HEADERS += \
     src/chart/variablechart.h \
     src/chart/plot.h \
     src/chart/rtaplot.h \
+    src/chart/speechplot.h \
     src/chart/impulseplot.h \
     src/chart/phaseplot.h \
     src/chart/magnitudeplot.h \
@@ -303,7 +311,11 @@ ios: {
     SOURCES += src/filesystem/plugins/iosdialogplugin.mm
 }
 
-APP_GIT_VERSION = $$system(git --git-dir $$_PRO_FILE_PWD_/.git --work-tree $$_PRO_FILE_PWD_ describe --tags $$system(git --git-dir $$_PRO_FILE_PWD_/.git --work-tree $$_PRO_FILE_PWD_ rev-list --tags --max-count=1))
+# Allow release automation to pin the displayed version without requiring a tag.
+APP_GIT_VERSION = $$(OSM_VERSION)
+isEmpty(APP_GIT_VERSION) {
+    APP_GIT_VERSION = $$system(git --git-dir $$_PRO_FILE_PWD_/.git --work-tree $$_PRO_FILE_PWD_ describe --tags $$system(git --git-dir $$_PRO_FILE_PWD_/.git --work-tree $$_PRO_FILE_PWD_ rev-list --tags --max-count=1))
+}
 DEFINES += APP_GIT_VERSION=\\\"$$APP_GIT_VERSION\\\"
 
 #logger
@@ -340,7 +352,7 @@ win32 {
     SOURCES += \
         src/audio/plugins/wasapi.cpp
 
-    LIBS += ole32.lib
+    LIBS += -lole32
 
     exists($$PWD/../asiosdk/*) {
         DEFINES += USE_ASIO
@@ -528,7 +540,7 @@ isEqual(GRAPH, "OPENGL") {
 #}
 
 # Special rules for deployment on Linux for AppImage
-unix:!macx:!ios:CONFIG(release, debug|release) {
+unix:!macx:!ios:CONFIG(release, debug|release):!CONFIG(osm_no_linuxdeploy) {
     QMAKE_POST_LINK += $$QMAKE_COPY $$PWD/OpenSoundMeter.desktop $$OUT_PWD/OpenSoundMeter_\\"$$APP_GIT_VERSION\\".desktop
     QMAKE_POST_LINK += && $$QMAKE_COPY $$PWD/icons/white.png $$OUT_PWD
     QMAKE_POST_LINK += && $$QMAKE_COPY $$PWD/linuxdeployosm.sh $$OUT_PWD

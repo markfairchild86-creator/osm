@@ -35,8 +35,11 @@ class Measurement : public Base
     //Q_PROPERTY(InputFilter inputFilter READ inputFilter WRITE setInputFilter NOTIFY inputFilterChanged)
 
 public:
-    enum AverageType {Off, LPF, FIFO};
+    enum AverageType {Off, LPF, FIFO, Fast, Slow, Infinite, Progressive};
     Q_ENUM(AverageType)
+
+    enum MagnitudeAverageType {Polar, Vector};
+    Q_ENUM(MagnitudeAverageType)
 
     enum Mode {FFT10, FFT11, FFT12, FFT13, FFT14, FFT15, FFT16, LFT};
     Q_ENUM(Mode)
@@ -78,6 +81,30 @@ public:
     unsigned int average() const;
     void setAverage(unsigned int average);
 
+    unsigned int averageDepth() const;
+    void setAverageDepth(unsigned int averageDepth);
+
+    MagnitudeAverageType magnitudeAverageType() const;
+    void setMagnitudeAverageType(const MagnitudeAverageType &type);
+    void setMagnitudeAverageType(QVariant type);
+
+    bool coherenceWeighting() const;
+    void setCoherenceWeighting(bool weighting);
+
+    float coherenceExponent() const;
+    void setCoherenceExponent(float exponent);
+
+    static constexpr float MIN_COHERENCE_EXPONENT = 0.25f;
+    static constexpr float MAX_COHERENCE_EXPONENT = 4.f;
+    static constexpr float DEFAULT_COHERENCE_EXPONENT = 1.f;
+
+    static const char *coherenceExponentSettingsKey() noexcept;
+    static float clampCoherenceExponent(float exponent) noexcept;
+    static float coherenceWeight(float coherence, float exponent) noexcept;
+
+    unsigned int logWindowPointsPerOctave() const;
+    void setLogWindowPointsPerOctave(unsigned int pointsPerOctave);
+
     WindowFunction::Type windowFunctionType() const;
     void setWindowFunctionType(const WindowFunction::Type &windowFunctionType);
     void setWindowFunctionType(QVariant type);
@@ -102,6 +129,11 @@ public:
     virtual void offsetChanged(float) = 0;
     virtual void modeChanged(Meta::Measurement::Mode)  = 0;
     virtual void averageChanged(unsigned int)  = 0;
+    virtual void averageDepthChanged(unsigned int)  = 0;
+    virtual void magnitudeAverageTypeChanged(Meta::Measurement::MagnitudeAverageType)  = 0;
+    virtual void coherenceWeightingChanged(bool)  = 0;
+    virtual void coherenceExponentChanged(float)  = 0;
+    virtual void logWindowPointsPerOctaveChanged(unsigned int)  = 0;
     virtual void dataChanelChanged(unsigned int)  = 0;
     virtual void referenceChanelChanged(unsigned int)  = 0;
     virtual void averageTypeChanged(Meta::Measurement::AverageType)  = 0;
@@ -121,9 +153,14 @@ protected:
     unsigned int m_dataChanel, m_referenceChanel;
     int m_delay;
     std::atomic<unsigned int> m_average;
+    std::atomic<unsigned int> m_averageDepth;
     Mode m_mode;
     Meta::Measurement::InputFilter m_inputFilter;
     AverageType m_averageType;
+    MagnitudeAverageType m_magnitudeAverageType;
+    std::atomic<bool> m_coherenceWeighting;
+    std::atomic<float> m_coherenceExponent;
+    std::atomic<unsigned int> m_logWindowPointsPerOctave;
     Filter::Frequency m_filtersFrequency;
     WindowFunction::Type m_windowFunctionType;
 };

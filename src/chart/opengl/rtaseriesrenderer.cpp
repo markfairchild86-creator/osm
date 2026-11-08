@@ -105,6 +105,9 @@ void RTASeriesRenderer::synchronize(QQuickFramebufferObject *item)
         if (m_scale != plot->scale()) {
             m_scale = plot->scale();
         }
+        if (m_weightingCurve.name() != plot->curveName()) {
+            m_weightingCurve = plot->weightingCurve();
+        }
         m_showPeaks = plot->showPeaks();
     }
 }
@@ -171,6 +174,8 @@ void RTASeriesRenderer::renderLine()
             auto value = 20 * log10f(m_source->module(i)) + offset;
             if (m_scale == RTAPlot::Scale::Phon) {
                 value = elc.phone(m_source->frequency(i), value + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+            } else {
+                value += m_weightingCurve.gain(m_source->frequency(i));
             }
 
             m_vertices[j] = m_source->frequency(i);
@@ -187,6 +192,9 @@ void RTASeriesRenderer::renderLine()
             if (m_scale == RTAPlot::Scale::Phon) {
                 value1 = elc.phone(m_source->frequency(i    ), value1 + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
                 value2 = elc.phone(m_source->frequency(i + 1), value2 + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+            } else {
+                value1 += m_weightingCurve.gain(m_source->frequency(i));
+                value2 += m_weightingCurve.gain(m_source->frequency(i + 1));
             }
             addLineSegment(j, verticiesCount,
                            m_source->frequency(i), value1,
@@ -221,7 +229,12 @@ void RTASeriesRenderer::renderPPOLine()
         if (i == 0) {
             return ;
         }
-        value += m_source->module(i) * m_source->module(i);
+        const float module = m_source->module(i);
+        float weight = 1.f;
+        if (m_scale != RTAPlot::Scale::Phon) {
+            weight = std::pow(10.f, m_weightingCurve.gain(m_source->frequency(i)) / 10.f);
+        }
+        value += module * module * weight;
     };
 
     unsigned int i = 0, verticiesCount = 0;
@@ -285,8 +298,13 @@ void RTASeriesRenderer::renderBars()
             return ;
         }
 
-        value += m_source->module(i) * m_source->module(i);
-        peak = std::max(peak, m_source->peakSquared(i));
+        const float module = m_source->module(i);
+        float weight = 1.f;
+        if (m_scale != RTAPlot::Scale::Phon) {
+            weight = std::pow(10.f, m_weightingCurve.gain(m_source->frequency(i)) / 10.f);
+        }
+        value += module * module * weight;
+        peak = std::max(peak, m_source->peakSquared(i) * weight);
     };
 
     Math::EqualLoudnessContour elc;
@@ -428,6 +446,8 @@ void RTASeriesRenderer::renderLines()
             auto value = 20 * log10f(m_source->module(i)) + offset;
             if (m_scale == RTAPlot::Scale::Phon) {
                 value = elc.phone(m_source->frequency(i), value + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+            } else {
+                value += m_weightingCurve.gain(m_source->frequency(i));
             }
 
             m_vertices[j + 0] = m_source->frequency(i);
@@ -442,6 +462,8 @@ void RTASeriesRenderer::renderLines()
                 auto peak = 10 * log10f(m_source->peakSquared(i)) + offset;
                 if (m_scale == RTAPlot::Scale::Phon) {
                     peak = elc.phone(m_source->frequency(i), peak + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+                } else {
+                    peak += m_weightingCurve.gain(m_source->frequency(i));
                 }
 
                 m_vertices[j + 1] = peak;
@@ -457,6 +479,8 @@ void RTASeriesRenderer::renderLines()
             auto value = 20 * log10f(m_source->module(i)) + offset;
             if (m_scale == RTAPlot::Scale::Phon) {
                 value = elc.phone(m_source->frequency(i), value + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+            } else {
+                value += m_weightingCurve.gain(m_source->frequency(i));
             }
 
             addLineSegment(j, verticiesCount,
@@ -469,6 +493,8 @@ void RTASeriesRenderer::renderLines()
                 peak = 10 * log10f(m_source->peakSquared(i)) + offset;
                 if (m_scale == RTAPlot::Scale::Phon) {
                     peak = elc.phone(m_source->frequency(i), peak + LEVEL_NORMALIZATION) - LEVEL_NORMALIZATION;
+                } else {
+                    peak += m_weightingCurve.gain(m_source->frequency(i));
                 }
                 addLineSegment(j, verticiesCount,
                                m_source->frequency(i), peak,

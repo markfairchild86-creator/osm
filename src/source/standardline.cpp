@@ -35,6 +35,7 @@ StandardLine::StandardLine(QObject *parent) : Abstract::Source(parent), m_mode(E
 
     connect(this, &Abstract::Source::sampleRateChanged, this, &StandardLine::update);
     connect(this, &StandardLine::transformModeChanged, this, &StandardLine::update);
+    connect(this, &StandardLine::logWindowPointsPerOctaveChanged, this, &StandardLine::update);
 }
 
 Shared::Source StandardLine::clone() const
@@ -42,6 +43,8 @@ Shared::Source StandardLine::clone() const
     auto cloned = std::make_shared<StandardLine>();
     cloned->setMode(mode());
     cloned->setLoudness(loudness());
+    cloned->setTransformMode(transformMode());
+    cloned->setLogWindowPointsPerOctave(logWindowPointsPerOctave());
     cloned->setName(name());
     cloned->setActive(active());
     return std::static_pointer_cast<Abstract::Source>(cloned);
@@ -52,6 +55,8 @@ QJsonObject StandardLine::toJSON() const noexcept
     auto object = Abstract::Source::toJSON();
     object["mode"]      = mode();
     object["loudness"]  = loudness();
+    object["transformMode"] = transformMode();
+    object["logWindowPointsPerOctave"] = static_cast<int>(logWindowPointsPerOctave());
 
     return object;
 }
@@ -60,6 +65,8 @@ void StandardLine::fromJSON(QJsonObject data, const SourceList *) noexcept
 {
     setMode(data["mode"].toInt(mode()));
     setLoudness(data["loudness"].toDouble());
+    setTransformMode(static_cast<Meta::Measurement::Mode>(data["transformMode"].toInt(transformMode())));
+    setLogWindowPointsPerOctave(static_cast<unsigned int>(data["logWindowPointsPerOctave"].toInt(logWindowPointsPerOctave())));
     Abstract::Source::fromJSON(data);
 }
 
@@ -243,6 +250,23 @@ void StandardLine::setTransformMode(const Meta::Measurement::Mode &newTransformM
         return;
     m_transformMode = newTransformMode;
     emit transformModeChanged();
+}
+
+unsigned int StandardLine::logWindowPointsPerOctave() const
+{
+    return m_dataFT.logWindowPointsPerOctave();
+}
+
+void StandardLine::setLogWindowPointsPerOctave(unsigned int pointsPerOctave)
+{
+    const unsigned int previous = m_dataFT.logWindowPointsPerOctave();
+    m_dataFT.setLogWindowPointsPerOctave(pointsPerOctave);
+    if (previous == m_dataFT.logWindowPointsPerOctave()) {
+        return;
+    }
+
+    update();
+    emit logWindowPointsPerOctaveChanged(m_dataFT.logWindowPointsPerOctave());
 }
 
 QVariant StandardLine::getAvailableTransformModes()

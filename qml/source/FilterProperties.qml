@@ -50,6 +50,28 @@ Item {
 
             }
 
+            SelectableSpinBox {
+                id: logWindowPointsPerOctave
+                Layout.preferredWidth: elementWidth
+                value: dataObjectData.logWindowPointsPerOctave
+                from: 1
+                to: 96
+                editable: true
+                visible: dataObjectData.mode === Measurement.LFT
+                onValueChanged: dataObjectData.logWindowPointsPerOctave = value
+
+                textFromValue: function(value, locale) {
+                    return value + " ppo";
+                }
+
+                valueFromText: function(text, locale) {
+                    return parseInt(text);
+                }
+
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("LTW time-window points per octave (1-96)")
+            }
+
             DropDown {
                 model: [44100, 48000, 96000, 192000]
                 currentIndex: model.indexOf(dataObjectData.sampleRate)

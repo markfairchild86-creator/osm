@@ -52,6 +52,11 @@ class Measurement : public Abstract::Source, public Meta::Measurement
                referenceChanelChanged)
     Q_PROPERTY(int delay READ delay WRITE setDelay NOTIFY delayChanged)
     Q_PROPERTY(int average READ average WRITE setAverage NOTIFY averageChanged)
+    Q_PROPERTY(unsigned int averageDepth READ averageDepth WRITE setAverageDepth NOTIFY averageDepthChanged)
+    Q_PROPERTY(Meta::Measurement::MagnitudeAverageType magnitudeAverageType READ magnitudeAverageType WRITE setMagnitudeAverageType NOTIFY magnitudeAverageTypeChanged)
+    Q_PROPERTY(bool coherenceWeighting READ coherenceWeighting WRITE setCoherenceWeighting NOTIFY coherenceWeightingChanged)
+    Q_PROPERTY(float coherenceExponent READ coherenceExponent WRITE setCoherenceExponent NOTIFY coherenceExponentChanged)
+    Q_PROPERTY(unsigned int logWindowPointsPerOctave READ logWindowPointsPerOctave WRITE setLogWindowPointsPerOctave NOTIFY logWindowPointsPerOctaveChanged)
     Q_PROPERTY(Meta::Measurement::Mode mode READ mode WRITE setMode NOTIFY modeChanged)
     Q_PROPERTY(Meta::Measurement::AverageType averageType READ averageType WRITE setAverageType NOTIFY averageTypeChanged)
     Q_PROPERTY(Filter::Frequency filtersFrequency READ filtersFrequency WRITE setFiltersFrequency NOTIFY
@@ -150,6 +155,7 @@ private:
 
     Settings *m_settings;
     Mode m_currentMode;
+    unsigned int m_currentLogWindowPointsPerOctave;
 
     bool m_resetDelay;
     int m_workingDelay;
@@ -176,15 +182,21 @@ private:
 
     Averaging<float> m_deconvAvg;
     Averaging<float> m_magnitudeAvg, m_moduleAvg;
-    Averaging<Complex> m_pahseAvg;
+    Averaging<Complex> m_pahseAvg, m_transferAvg;
+    TemporalAveraging<float> m_deconvTemporal, m_magnitudeTemporal, m_moduleTemporal;
+    TemporalAveraging<Complex> m_phaseTemporal, m_transferTemporal;
+    TemporalAveraging<float> m_magnitudeGate, m_moduleGate;
+    TemporalAveraging<Complex> m_phaseGate, m_transferGate;
     Coherence m_coherence;
 
     Container::array<Filter::BesselLPF<float>> m_moduleLPFs, m_magnitudeLPFs, m_deconvLPFs;
-    Container::array<Filter::BesselLPF<Complex>> m_phaseLPFs;
+    Container::array<Filter::BesselLPF<Complex>> m_phaseLPFs, m_transferLPFs;
     Container::array<Meter> m_meters;
 
     void calculateDataLength();
     void averaging();
+    void updateTemporalAveraging();
+    void updateCoherenceWeighting();
 
     bool m_enableCalibration, m_calibrationLoaded;
     QList<QVector<float>> m_calibrationList;
@@ -213,6 +225,11 @@ signals:
     void offsetChanged(float) override;
     void modeChanged(Meta::Measurement::Mode) override;
     void averageChanged(unsigned int) override;
+    void averageDepthChanged(unsigned int) override;
+    void magnitudeAverageTypeChanged(Meta::Measurement::MagnitudeAverageType) override;
+    void coherenceWeightingChanged(bool) override;
+    void coherenceExponentChanged(float) override;
+    void logWindowPointsPerOctaveChanged(unsigned int) override;
     void dataChanelChanged(unsigned int) override;
     void referenceChanelChanged(unsigned int) override;
     void averageTypeChanged(Meta::Measurement::AverageType) override;

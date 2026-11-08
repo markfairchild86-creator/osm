@@ -40,6 +40,7 @@
         <file alias="elements/TitledCombo.qml">qml/elements/TitledCombo.qml</file>
         <file alias="elements/ColorPicker.qml">qml/elements/ColorPicker.qml</file>
         <file alias="elements/NameField.qml">qml/elements/NameField.qml</file>
+        <file alias="elements/WeightingCurveManager.qml">qml/elements/WeightingCurveManager.qml</file>
         <file alias="elements/DropDown.qml">qml/elements/DropDown.qml</file>
         <file alias="TargetTrace.qml">qml/TargetTrace.qml</file>
         <file alias="TargetTraceProperties.qml">qml/TargetTraceProperties.qml</file>
@@ -53,6 +54,7 @@
         <file alias="RemoteProperties.qml">qml/RemoteProperties.qml</file>
         <file alias="elements/GeneratorChannelSelect.qml">qml/elements/GeneratorChannelSelect.qml</file>
         <file alias="Plot/LevelProperties.qml">qml/Plot/LevelProperties.qml</file>
+        <file alias="Plot/SpeechIntelligibilityProperties.qml">qml/Plot/SpeechIntelligibilityProperties.qml</file>
         <file alias="SPL/Grid.qml">qml/SPL/Grid.qml</file>
         <file alias="SPL/Meter.qml">qml/SPL/Meter.qml</file>
         <file alias="SPL/MeterProperties.qml">qml/SPL/MeterProperties.qml</file>

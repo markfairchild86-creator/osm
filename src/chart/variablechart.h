@@ -18,6 +18,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <QtQuick/QQuickItem>
+#include <QMap>
 #include "type.h"
 #include "abstract/source.h"
 #include "plot.h"
@@ -67,12 +68,14 @@ signals:
 
 protected:
     void initType();
+    Settings *typeSettings(const Type &type) noexcept;
 
 private:
     void connectSources(SourceList *sourceList);
     Plot *m_plot;
     SourceList *m_sources;
     Settings *m_settings;
+    QMap<Type, Settings *> m_typeSettings;
     Type m_selected;
     bool m_darkMode;
 

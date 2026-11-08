@@ -48,6 +48,9 @@ void MagnitudeSeriesNode::synchronizeSeries()
         m_mode               = magnitudePlot->mode();
         m_sensor             = magnitudePlot->sensor();
         m_coherenceThreshold = magnitudePlot->coherenceThreshold();
+        if (m_weightingCurve.name() != magnitudePlot->curveName()) {
+            m_weightingCurve = magnitudePlot->weightingCurve();
+        }
     }
 }
 
@@ -76,7 +79,8 @@ void MagnitudeSeriesNode::renderSeries()
             break;
 
         case MagnitudePlot::Mode::dB:
-            value += (m_invert ? -1 : 1) * m_source->magnitude(i);
+            value += (m_invert ? -1 : 1) * (m_source->magnitude(i) +
+                                            m_weightingCurve.gain(m_source->frequency(i)));
             break;
         }
     };
