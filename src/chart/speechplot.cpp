@@ -18,8 +18,11 @@
 #include "speechplot.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 
 #include <QPainter>
+#include <QRegularExpression>
 
 #include "sourcelist.h"
 #include "abstract/source.h"
@@ -45,6 +48,29 @@ QColor ratingColor(const QString &rating)
 QString displayValue(float value)
 {
     return QString::number(static_cast<double>(value), 'f', 2);
+}
+
+bool parseBandLevels(const QString &text,
+                     std::array<float, Speech::Calculator::BandCount> &levels,
+                     QString &error)
+{
+    const QStringList parts = text.split(QRegularExpression(QStringLiteral("[,;\\s]+")),
+                                         Qt::SkipEmptyParts);
+    if (parts.size() != Speech::Calculator::BandCount) {
+        error = QStringLiteral("expected seven values for 125 Hz to 8 kHz");
+        return false;
+    }
+
+    for (int i = 0; i < Speech::Calculator::BandCount; ++i) {
+        bool ok = false;
+        const float level = parts[i].toFloat(&ok);
+        if (!ok || !std::isfinite(level)) {
+            error = QStringLiteral("invalid number: %1").arg(parts[i]);
+            return false;
+        }
+        levels[i] = level;
+    }
+    return true;
 }
 
 } // namespace
@@ -258,7 +284,11 @@ SpeechPlot::SpeechPlot(Settings *settings, QQuickItem *parent) :
     m_sources(nullptr),
     m_content(nullptr),
     m_sourceName(),
-    m_sourceColor(QColor(QStringLiteral("#2196F3")))
+    m_sourceColor(QColor(QStringLiteral("#2196F3"))),
+    m_correctionsEnabled(false),
+    m_signalLevels(),
+    m_noiseLevels(),
+    m_correctionError()
 {
     m_content = new Content(this);
     m_timer.setInterval(500);
@@ -315,7 +345,9 @@ void SpeechPlot::compute()
         if (count == 0) {
             m_result.error = QStringLiteral("This source has no impulse response. Store or import an impulse measurement first.");
         } else {
-            m_result = Speech::Calculator::fromImpulse(values, times, sampleRate);
+            const Speech::Calculator::Correction correction =
+                m_correctionsEnabled ? m_correction : Speech::Calculator::Correction{};
+            m_result = Speech::Calculator::fromImpulse(values, times, sampleRate, correction);
         }
     }
 
@@ -341,7 +373,20 @@ QString SpeechPlot::status() const
     if (m_result.shortImpulse) {
         message += QStringLiteral(" · IR %1 s (under 1.6 s)").arg(displayValue(m_result.duration));
     }
-    message += QStringLiteral(" · noise/masking corrections not applied");
+    if (!m_correctionsEnabled) {
+        message += QStringLiteral(" · noise/masking corrections off");
+    } else {
+        if (m_result.noiseCorrectionApplied && m_result.maskingCorrectionApplied) {
+            message += QStringLiteral(" · noise + masking corrections applied");
+        } else if (m_result.maskingCorrectionApplied) {
+            message += QStringLiteral(" · masking/threshold correction applied");
+        } else if (m_result.noiseCorrectionApplied) {
+            message += QStringLiteral(" · noise correction applied");
+        }
+        if (!m_correctionError.isEmpty()) {
+            message += QStringLiteral(" · ") + m_correctionError;
+        }
+    }
     return message;
 }
 
@@ -358,6 +403,84 @@ bool SpeechPlot::valid() const
 bool SpeechPlot::shortImpulse() const
 {
     return m_result.shortImpulse;
+}
+
+bool SpeechPlot::correctionsEnabled() const
+{
+    return m_correctionsEnabled;
+}
+
+QString SpeechPlot::signalLevels() const
+{
+    return m_signalLevels;
+}
+
+QString SpeechPlot::noiseLevels() const
+{
+    return m_noiseLevels;
+}
+
+void SpeechPlot::setCorrectionsEnabled(bool enabled)
+{
+    if (m_correctionsEnabled == enabled) {
+        return;
+    }
+    m_correctionsEnabled = enabled;
+    emit correctionsChanged();
+    updateCorrection();
+}
+
+void SpeechPlot::setSignalLevels(const QString &levels)
+{
+    if (m_signalLevels == levels) {
+        return;
+    }
+    m_signalLevels = levels;
+    emit correctionsChanged();
+    updateCorrection();
+}
+
+void SpeechPlot::setNoiseLevels(const QString &levels)
+{
+    if (m_noiseLevels == levels) {
+        return;
+    }
+    m_noiseLevels = levels;
+    emit correctionsChanged();
+    updateCorrection();
+}
+
+void SpeechPlot::updateCorrection()
+{
+    m_correction = Speech::Calculator::Correction{};
+    m_correctionError.clear();
+
+    if (m_correctionsEnabled) {
+        if (m_signalLevels.trimmed().isEmpty()) {
+            m_correctionError = QStringLiteral("enter seven speech octave-band levels in dB SPL");
+        } else {
+            QString error;
+            if (parseBandLevels(m_signalLevels, m_correction.signalLevels, error)) {
+                m_correction.hasSignalLevels = true;
+            } else {
+                m_correctionError = QStringLiteral("speech levels: %1").arg(error);
+            }
+        }
+
+        if (!m_noiseLevels.trimmed().isEmpty()) {
+            QString error;
+            if (parseBandLevels(m_noiseLevels, m_correction.noiseLevels, error)) {
+                m_correction.hasNoiseLevels = m_correction.hasSignalLevels;
+            } else {
+                if (!m_correctionError.isEmpty()) {
+                    m_correctionError += QLatin1Char(' ');
+                }
+                m_correctionError += QStringLiteral("noise levels: %1").arg(error);
+            }
+        }
+    }
+
+    compute();
 }
 
 float SpeechPlot::sti() const
@@ -453,14 +576,35 @@ QString SpeechPlot::yLabel() const
 void SpeechPlot::setSettings(Settings *settings) noexcept
 {
     Plot::setSettings(settings);
+    if (!m_settings) {
+        return;
+    }
+
+    setCorrectionsEnabled(m_settings->value(QStringLiteral("corrections/enabled"), false).toBool());
+    setSignalLevels(m_settings->value(QStringLiteral("corrections/signalLevels")).toString());
+    setNoiseLevels(m_settings->value(QStringLiteral("corrections/noiseLevels")).toString());
 }
 
 void SpeechPlot::storeSettings() noexcept
 {
+    if (!m_settings) {
+        return;
+    }
+
+    m_settings->setValue(QStringLiteral("corrections/enabled"), m_correctionsEnabled);
+    m_settings->setValue(QStringLiteral("corrections/signalLevels"), m_signalLevels);
+    m_settings->setValue(QStringLiteral("corrections/noiseLevels"), m_noiseLevels);
 }
 
-void SpeechPlot::inheritSettings(const Plot *)
+void SpeechPlot::inheritSettings(const Plot *source)
 {
+    const auto *speechSource = dynamic_cast<const SpeechPlot *>(source);
+    if (!speechSource) {
+        return;
+    }
+    setCorrectionsEnabled(speechSource->correctionsEnabled());
+    setSignalLevels(speechSource->signalLevels());
+    setNoiseLevels(speechSource->noiseLevels());
 }
 
 SeriesItem *SpeechPlot::createSeriesFromSource(const Shared::Source &)

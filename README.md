@@ -16,6 +16,18 @@ Qt5.15 C++17
 RTA and Magnitude plots can import custom weighting curves from `.txt`, `.csv`, or `.cal` files. See the [file-format guide](docs/weighting-curves.md) and the [ready-to-edit example](docs/examples/weighting-curve.txt).
 
 
+## Long impulse responses
+
+Measurement and windowing modes now include FFT 17 through FFT 20, up to 1,048,576 samples per transform. The deconvolution buffer retains the full causal half of the record, so long room decays can be captured without truncation: FFT 19 at 96 kHz and FFT 20 at 192 kHz both retain about 2.7 seconds of impulse response. The complete record is used by the impulse-response plots and by speech-intelligibility analysis.
+
+## Speech intelligibility
+
+The Speech Intelligibility chart calculates STI, STIPA and RASTI from an impulse response using the indirect method of IEC 60268-16. Optional **Noise & masking** corrections apply the standard's auditory-masking and absolute speech-reception-threshold terms, and can also include ambient noise. Enter seven octave-band speech levels and, when needed, seven noise levels from 125 Hz to 8 kHz in dB SPL; the status line reports whether corrections are off, applied, or why the entered levels cannot be used. Correction settings are stored with the chart.
+
+## Tests
+
+QtTest targets cover magnitude averaging, weighting curves, speech intelligibility (including IEC 60268-16 correction math), long impulse-response deconvolution, and chart settings. The [Qt tests workflow](.github/workflows/qt-averaging.yml) runs the suites on Linux, with the weighting, speech, long-impulse and chart suites also running on Windows and macOS.
+
 ## SAST Tools
 
 [PVS-Studio](https://pvs-studio.com/pvs-studio/?utm_source=website&utm_medium=github&utm_campaign=open_source) - static analyzer for C, C++, C#, and Java code.

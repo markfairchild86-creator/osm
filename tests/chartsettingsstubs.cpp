@@ -27,52 +27,6 @@
 
 using namespace Chart;
 
-// No sources are created or iterated by these settings tests.
-namespace Abstract {
-QUuid Source::uuid() const
-{
-    return {};
-}
-
-QColor Source::color() const
-{
-    return {};
-}
-
-QString Source::name() const
-{
-    return {};
-}
-
-unsigned int Source::sampleRate() const
-{
-    return 0;
-}
-
-void Data::lock()
-{
-}
-
-void Data::unlock()
-{
-}
-
-unsigned int Data::timeDomainSize() const noexcept
-{
-    return 0;
-}
-
-float Data::impulseTime(unsigned int) const noexcept
-{
-    return 0.f;
-}
-
-float Data::impulseValue(unsigned int) const noexcept
-{
-    return 0.f;
-}
-}
-
 SeriesesItem::SeriesesItem(QQuickItem *parent, Plot *plot) :
     QQuickItem(parent),
     m_plot(plot)
@@ -206,6 +160,35 @@ SeriesItem *NyquistPlot::createSeriesFromSource(const Shared::Source &)
 SeriesItem *LevelPlot::createSeriesFromSource(const Shared::Source &)
 {
     return nullptr;
+}
+
+SourceList::SourceList(QObject *parent, bool)
+    : QObject(parent)
+    , m_colorIndex(0)
+    , m_selected(0)
+{
+}
+
+void SourceList::appendItem(const Shared::Source &item, bool)
+{
+    m_items.append(item);
+}
+
+// The settings tests never expose the source list to QML, so the real
+// meta-object is not needed; provide the QObject vtable entries only.
+const QMetaObject *SourceList::metaObject() const
+{
+    return &QObject::staticMetaObject;
+}
+
+void *SourceList::qt_metacast(const char *name)
+{
+    return QObject::qt_metacast(name);
+}
+
+int SourceList::qt_metacall(QMetaObject::Call call, int id, void **arguments)
+{
+    return QObject::qt_metacall(call, id, arguments);
 }
 
 int SourceList::count() const noexcept

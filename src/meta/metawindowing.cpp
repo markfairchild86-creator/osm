@@ -33,6 +33,10 @@ const std::map<Windowing::Mode, QString>Windowing::m_modeMap = {
     {Windowing::Mode::LTW1,  "LTW1"},
     {Windowing::Mode::LTW2,  "LTW2"},
     {Windowing::Mode::LTW3,  "LTW3"},
+    {Windowing::Mode::FFT17, "FFT 17"},
+    {Windowing::Mode::FFT18, "FFT 18"},
+    {Windowing::Mode::FFT19, "FFT 19"},
+    {Windowing::Mode::FFT20, "FFT 20"},
 };
 const std::map<Windowing::Mode, int>Windowing::m_FFTsizes = {
     {Windowing::Mode::FFT8,   8},
@@ -47,6 +51,10 @@ const std::map<Windowing::Mode, int>Windowing::m_FFTsizes = {
     {Windowing::Mode::LTW1,  16},
     {Windowing::Mode::LTW2,  16},
     {Windowing::Mode::LTW3,  16},
+    {Windowing::Mode::FFT17, 17},
+    {Windowing::Mode::FFT18, 18},
+    {Windowing::Mode::FFT19, 19},
+    {Windowing::Mode::FFT20, 20},
 };
 
 Windowing::Windowing() : m_wide(1), m_offset(0),

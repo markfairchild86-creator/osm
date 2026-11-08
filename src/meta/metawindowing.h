@@ -44,13 +44,18 @@ class Windowing : public Base
 
 public:
     enum Mode {
-        FFT8, FFT9, FFT10, FFT11, FFT12, FFT13, FFT14, FFT15, FFT16, LTW1, LTW2, LTW3
+        FFT8, FFT9, FFT10, FFT11, FFT12, FFT13, FFT14, FFT15, FFT16, LTW1, LTW2, LTW3, FFT17, FFT18, FFT19, FFT20
     };
     Q_ENUM(Mode)
     enum SourceDomain {
         Time, Frequency
     };
     Q_ENUM(SourceDomain)
+
+    static constexpr bool isLogMode(Mode mode) noexcept
+    {
+        return mode == LTW1 || mode == LTW2 || mode == LTW3;
+    }
 
     Windowing();
 

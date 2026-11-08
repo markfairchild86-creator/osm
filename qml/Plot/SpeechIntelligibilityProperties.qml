@@ -79,6 +79,87 @@ Item {
             }
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
+
+            CheckBox {
+                id: correctionsCheck
+                text: qsTr("Noise & masking")
+                checked: dataObject ? dataObject.correctionsEnabled : false
+                onToggled: {
+                    if (dataObject) {
+                        dataObject.correctionsEnabled = checked
+                    }
+                }
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Apply IEC 60268-16 ambient-noise, auditory-masking and absolute-threshold corrections")
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Label {
+                        text: qsTr("Speech dB SPL")
+                    }
+                    TextField {
+                        id: signalLevelsField
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 180
+                        text: dataObject ? dataObject.signalLevels : ""
+                        placeholderText: qsTr("seven values")
+                        enabled: dataObject ? dataObject.correctionsEnabled : false
+                        selectByMouse: true
+                        onEditingFinished: {
+                            if (dataObject) {
+                                dataObject.signalLevels = text
+                            }
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Octave-band speech levels at 125, 250, 500, 1k, 2k, 4k and 8k Hz")
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Label {
+                        text: qsTr("Noise dB SPL")
+                    }
+                    TextField {
+                        id: noiseLevelsField
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 180
+                        text: dataObject ? dataObject.noiseLevels : ""
+                        placeholderText: qsTr("optional, seven values")
+                        enabled: dataObject ? dataObject.correctionsEnabled : false
+                        selectByMouse: true
+                        onEditingFinished: {
+                            if (dataObject) {
+                                dataObject.noiseLevels = text
+                            }
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Octave-band background-noise levels; leave empty when noise is not being added")
+                    }
+                }
+            }
+        }
+
+        Label {
+            Layout.fillWidth: true
+            text: qsTr("Space- or comma-separated levels for 125, 250, 500, 1k, 2k, 4k and 8k Hz. Use the speech level without background noise.")
+            font.pixelSize: 10
+            opacity: 0.7
+            wrapMode: Text.WordWrap
+        }
+
         Label {
             Layout.fillWidth: true
             text: dataObject ? dataObject.status : ""

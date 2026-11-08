@@ -35,6 +35,9 @@ class SpeechPlot : public Plot
     Q_PROPERTY(QString error READ error NOTIFY resultChanged)
     Q_PROPERTY(bool valid READ valid NOTIFY resultChanged)
     Q_PROPERTY(bool shortImpulse READ shortImpulse NOTIFY resultChanged)
+    Q_PROPERTY(bool correctionsEnabled READ correctionsEnabled WRITE setCorrectionsEnabled NOTIFY correctionsChanged)
+    Q_PROPERTY(QString signalLevels READ signalLevels WRITE setSignalLevels NOTIFY correctionsChanged)
+    Q_PROPERTY(QString noiseLevels READ noiseLevels WRITE setNoiseLevels NOTIFY correctionsChanged)
     Q_PROPERTY(float sti READ sti NOTIFY resultChanged)
     Q_PROPERTY(float stipa READ stipa NOTIFY resultChanged)
     Q_PROPERTY(float rasti READ rasti NOTIFY resultChanged)
@@ -52,6 +55,12 @@ public:
     QString error() const;
     bool valid() const;
     bool shortImpulse() const;
+    bool correctionsEnabled() const;
+    QString signalLevels() const;
+    QString noiseLevels() const;
+    void setCorrectionsEnabled(bool enabled);
+    void setSignalLevels(const QString &levels);
+    void setNoiseLevels(const QString &levels);
     float sti() const;
     float stipa() const;
     float rasti() const;
@@ -81,6 +90,7 @@ public:
 
 signals:
     void resultChanged();
+    void correctionsChanged();
 
 protected:
     SeriesItem *createSeriesFromSource(const Shared::Source &source) override;
@@ -88,14 +98,20 @@ protected:
 private:
     class Content;
     void compute();
+    void updateCorrection();
 
     SourceList *m_sources;
     Shared::Source m_source;
     Speech::Calculator::Result m_result;
+    Speech::Calculator::Correction m_correction;
     QTimer m_timer;
     Content *m_content;
     QString m_sourceName;
     QColor m_sourceColor;
+    bool m_correctionsEnabled;
+    QString m_signalLevels;
+    QString m_noiseLevels;
+    QString m_correctionError;
 };
 
 } // namespace Chart

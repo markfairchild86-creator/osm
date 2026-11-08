@@ -86,6 +86,73 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: make check
 
+  long-impulse:
+    name: Build and run QtTest long impulse response suite
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      QT_SELECT: qt5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            qtbase5-dev \
+            qtbase5-dev-tools \
+            qt5-qmake
+
+      - name: Build long impulse response tests
+        run: |
+          mkdir -p build/tst_longimpulse
+          cd build/tst_longimpulse
+          qmake "$GITHUB_WORKSPACE/tests/tst_longimpulse.pro" CONFIG+=release
+          make -j"$(nproc)"
+
+      - name: Run long impulse response tests
+        working-directory: build/tst_longimpulse
+        run: make check
+
+  chart-settings:
+    name: Build and run QtTest chart settings suite
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      QT_SELECT: qt5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            libgl1-mesa-dev \
+            libqt5opengl5-dev \
+            qtbase5-dev \
+            qtbase5-dev-tools \
+            qt5-qmake \
+            qtdeclarative5-dev
+
+      - name: Build chart settings tests
+        run: |
+          mkdir -p build/tst_chartsettings
+          cd build/tst_chartsettings
+          qmake "$GITHUB_WORKSPACE/tests/tst_chartsettings.pro" CONFIG+=release
+          make -j"$(nproc)"
+
+      - name: Run chart settings tests
+        working-directory: build/tst_chartsettings
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: make check
+
   weighting-platforms:
     name: Build and run QtTest weighting suite (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
@@ -160,6 +227,54 @@ jobs:
       - name: Run speech intelligibility tests
         shell: bash
         working-directory: build/tst_speechintelligibility
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make check
+          else
+            make check
+          fi
+
+      - name: Build long impulse response tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/tst_longimpulse
+          cd build/tst_longimpulse
+          qmake "$GITHUB_WORKSPACE/tests/tst_longimpulse.pro" CONFIG+=release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make -j"$NUMBER_OF_PROCESSORS"
+          else
+            make -j"$(sysctl -n hw.logicalcpu)"
+          fi
+
+      - name: Run long impulse response tests
+        shell: bash
+        working-directory: build/tst_longimpulse
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make check
+          else
+            make check
+          fi
+
+      - name: Build chart settings tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/tst_chartsettings
+          cd build/tst_chartsettings
+          qmake "$GITHUB_WORKSPACE/tests/tst_chartsettings.pro" CONFIG+=release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mingw32-make -j"$NUMBER_OF_PROCESSORS"
+          else
+            make -j"$(sysctl -n hw.logicalcpu)"
+          fi
+
+      - name: Run chart settings tests
+        shell: bash
+        working-directory: build/tst_chartsettings
         env:
           QT_QPA_PLATFORM: offscreen
         run: |

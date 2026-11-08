@@ -177,6 +177,11 @@ Item {
                     { text: "LTW 1", enabled: dataObjectData.domain === 0 },
                     { text: "LTW 2", enabled: dataObjectData.domain === 0 },
                     { text: "LTW 3", enabled: dataObjectData.domain === 0 },
+
+                    { text: "FFT 17", enabled: true },
+                    { text: "FFT 18", enabled: true },
+                    { text: "FFT 19", enabled: true },
+                    { text: "FFT 20", enabled: true },
                 ]
                 textRole: "text"
                 delegate: MenuItem {
@@ -202,8 +207,8 @@ Item {
                 from: 1
                 to: 96
                 editable: true
-                // LTW1..LTW3 are modes 9..11.
-                visible: dataObjectData.domain === 0 && dataObjectData.mode >= 9
+                // LTW1..LTW3 are modes 9..11; longer FFT modes follow them.
+                visible: dataObjectData.domain === 0 && dataObjectData.mode >= 9 && dataObjectData.mode <= 11
                 onValueChanged: dataObjectData.logWindowPointsPerOctave = value
 
                 textFromValue: function(value, locale) {

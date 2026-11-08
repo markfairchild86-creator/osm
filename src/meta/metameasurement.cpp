@@ -29,7 +29,11 @@ const std::map<Measurement::Mode, QString>Measurement::m_modeMap = {
     {Measurement::FFT14, "14"},
     {Measurement::FFT15, "15"},
     {Measurement::FFT16, "16"},
-    {Measurement::LFT,   "LTW"}
+    {Measurement::LFT,   "LTW"},
+    {Measurement::FFT17, "17"},
+    {Measurement::FFT18, "18"},
+    {Measurement::FFT19, "19"},
+    {Measurement::FFT20, "20"}
 };
 const std::map<Measurement::InputFilter, QString>Measurement::m_inputFilterMap = {
     {Measurement::InputFilter::Z,     "Z"},
@@ -46,7 +50,11 @@ const std::map<Measurement::Mode, int>Measurement::m_FFTsizes = {
     {Measurement::FFT13, 13},
     {Measurement::FFT14, 14},
     {Measurement::FFT15, 15},
-    {Measurement::FFT16, 16}
+    {Measurement::FFT16, 16},
+    {Measurement::FFT17, 17},
+    {Measurement::FFT18, 18},
+    {Measurement::FFT19, 19},
+    {Measurement::FFT20, 20}
 };
 
 Measurement::Measurement() : Base(),

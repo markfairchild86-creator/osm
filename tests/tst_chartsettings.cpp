@@ -7,7 +7,15 @@
 #include <QTextStream>
 #include <QUrl>
 
+#include <cmath>
+#include <memory>
+#include <random>
+#include <vector>
+
+#include "abstract/source.h"
+#include "chart/speechplot.h"
 #include "chart/variablechart.h"
+#include "sourcelist.h"
 #include "common/settings.h"
 #include "common/weightingcurvestore.h"
 #include "common/workingfolder.h"
@@ -25,6 +33,7 @@ private slots:
     void savedValuesSurviveNewChart();
     void typesWithSpecialNamesRestore();
     void speechIntelligibilityTypeRestores();
+    void speechCorrectionsReportErrorsAndStatus();
     void weightingFollowsRenameAndRemoval();
 
 private:
@@ -44,6 +53,45 @@ static void setRange(QObject *plot, float xmin, float xmax, float ymin, float ym
     plot->setProperty("ymin", ymin);
     plot->setProperty("ymax", ymax);
 }
+
+namespace {
+
+class TestImpulseSource : public Abstract::Source
+{
+public:
+    explicit TestImpulseSource(QObject *parent = nullptr) : Abstract::Source(parent) {}
+
+    Shared::Source clone() const override
+    {
+        return {};
+    }
+};
+
+std::shared_ptr<TestImpulseSource> makeLongImpulseSource()
+{
+    constexpr unsigned sampleRate = 48000;
+    constexpr unsigned count = sampleRate * 2;
+
+    auto source = std::make_shared<TestImpulseSource>();
+    source->setName(QStringLiteral("Long impulse response"));
+    source->setSampleRate(sampleRate);
+
+    std::vector<Abstract::Data::TimeData> data(count);
+    std::mt19937 generator(20261108u);
+    std::normal_distribution<float> distribution(0.f, 1.f);
+    constexpr double t60 = 2.0;
+    for (unsigned i = 0; i < count; ++i) {
+        const double time = static_cast<double>(i) / sampleRate;
+        data[i].time = static_cast<float>(i * 1000.0 / sampleRate);
+        data[i].value.real = distribution(generator) *
+                             static_cast<float>(std::exp(-6.907755 * time / t60));
+    }
+    data[0].value.real += 1.f;
+    source->setTimeDomainData(std::move(data));
+    return source;
+}
+
+} // namespace
 
 QString ChartSettingsTest::testGroup(const char *name) const
 {
@@ -197,6 +245,74 @@ void ChartSettingsTest::speechIntelligibilityTypeRestores()
     QCOMPARE(chart.typeString(), QStringLiteral("Magnitude"));
     chart.setTypeByString(QStringLiteral("Speech Intelligibility"));
     QCOMPARE(chart.typeString(), QStringLiteral("Speech Intelligibility"));
+}
+
+void ChartSettingsTest::speechCorrectionsReportErrorsAndStatus()
+{
+    auto source = makeLongImpulseSource();
+    SourceList sources(nullptr, false);
+    sources.appendItem(Shared::Source(std::static_pointer_cast<Abstract::Source>(source)));
+
+    Settings settings(testGroup("speech_corrections"));
+    Chart::VariableChart chart;
+    chart.setSettings(&settings);
+    chart.setTypeByString(QStringLiteral("Speech Intelligibility"));
+    chart.setSources(&sources);
+
+    auto *plot = qobject_cast<Chart::SpeechPlot *>(chart.plot());
+    QVERIFY(plot);
+    QVERIFY2(plot->valid(), qPrintable(plot->error()));
+    QVERIFY(plot->error().isEmpty());
+    QVERIFY(plot->status().contains(QStringLiteral("noise/masking corrections off")));
+    const float baseline = plot->sti();
+
+    // Enabling corrections without levels reports the input error without
+    // invalidating the measurement itself.
+    plot->setCorrectionsEnabled(true);
+    QVERIFY2(plot->valid(), qPrintable(plot->error()));
+    QVERIFY(plot->error().isEmpty());
+    QVERIFY(plot->status().contains(QStringLiteral("enter seven speech octave-band levels in dB SPL")));
+    QVERIFY(!plot->result().maskingCorrectionApplied);
+    QVERIFY(!plot->result().noiseCorrectionApplied);
+
+    // Valid speech levels report the masking/threshold status and lower STI.
+    plot->setSignalLevels(QStringLiteral("60 60 60 60 60 60 60"));
+    QVERIFY(plot->result().maskingCorrectionApplied);
+    QVERIFY(!plot->result().noiseCorrectionApplied);
+    QVERIFY(plot->status().contains(QStringLiteral("masking/threshold correction applied")));
+    QVERIFY(!plot->status().contains(QStringLiteral("enter seven speech")));
+    const float masked = plot->sti();
+    QVERIFY(masked < baseline);
+
+    // Adding noise levels reports both corrections and lowers STI further.
+    plot->setNoiseLevels(QStringLiteral("80,80,80,80,80,80,80"));
+    QVERIFY(plot->result().maskingCorrectionApplied);
+    QVERIFY(plot->result().noiseCorrectionApplied);
+    QVERIFY(plot->status().contains(QStringLiteral("noise + masking corrections applied")));
+    QVERIFY(plot->sti() < masked);
+
+    // Malformed speech levels are surfaced in the status line, and the
+    // measurement stays valid because the correction is optional.
+    plot->setSignalLevels(QStringLiteral("60 60"));
+    QVERIFY(plot->valid());
+    QVERIFY(plot->error().isEmpty());
+    QVERIFY(plot->status().contains(QStringLiteral("speech levels: expected seven values")));
+    QVERIFY(!plot->result().maskingCorrectionApplied);
+    QVERIFY(!plot->result().noiseCorrectionApplied);
+
+    // Malformed noise levels are reported while speech correction stays active.
+    plot->setSignalLevels(QStringLiteral("60 60 60 60 60 60 60"));
+    plot->setNoiseLevels(QStringLiteral("80 80"));
+    QVERIFY(plot->valid());
+    QVERIFY(plot->result().maskingCorrectionApplied);
+    QVERIFY(!plot->result().noiseCorrectionApplied);
+    QVERIFY(plot->status().contains(QStringLiteral("noise levels: expected seven values")));
+
+    // Turning corrections off clears their status.
+    plot->setCorrectionsEnabled(false);
+    QVERIFY(plot->status().contains(QStringLiteral("noise/masking corrections off")));
+    QVERIFY(!plot->result().maskingCorrectionApplied);
+    QVERIFY(!plot->result().noiseCorrectionApplied);
 }
 
 void ChartSettingsTest::weightingFollowsRenameAndRemoval()

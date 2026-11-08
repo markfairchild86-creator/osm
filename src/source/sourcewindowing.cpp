@@ -179,8 +179,8 @@ void Windowing::resizeData()
 
         // FFT:
         m_dataFT.setSize(timeDomainSize());
-        m_dataFT.setType(m_usedMode >= Mode::LTW1 ? FourierTransform::Log : FourierTransform::Fast);
-        m_dataFT.setNorm(m_usedMode >= Mode::LTW1 ? FourierTransform::Lin : FourierTransform::Sqrt);
+        m_dataFT.setType(isLogMode(m_usedMode) ? FourierTransform::Log : FourierTransform::Fast);
+        m_dataFT.setNorm(isLogMode(m_usedMode) ? FourierTransform::Lin : FourierTransform::Sqrt);
         m_dataFT.setAlign(FourierTransform::Center);
         m_dataFT.setSampleRate(sampleRate());
         switch (m_usedMode) {
@@ -239,7 +239,7 @@ void Windowing::updateFromFrequencyDomain()
 {
     Q_ASSERT(m_source);
 
-    if (m_usedMode >= Mode::LTW1) {
+    if (isLogMode(m_usedMode)) {
         setActive(false);
         emit Notifier::getInstance()->newMessage(
             name(),
@@ -388,7 +388,7 @@ void Windowing::updateFromTimeDomain(const Shared::Source &source)
         if (f == timeDomainSize()) {
             f = 0;
         }
-        if (m_usedMode >= Mode::LTW1) {
+        if (isLogMode(m_usedMode)) {
             m_dataFT.add(value, 0.f);
         } else {
             m_dataFT.set(f, value, 0.f);
@@ -399,7 +399,7 @@ void Windowing::updateFromTimeDomain(const Shared::Source &source)
 
 void Windowing::transform()
 {
-    if (m_usedMode >= Mode::LTW1) {
+    if (isLogMode(m_usedMode)) {
         m_dataFT.log();
     } else {
         m_dataFT.transformSingleChannel(true);
@@ -423,7 +423,7 @@ void Windowing::transform()
         m_ftdata[i].meanSquared = m_ftdata[i].magnitude * m_ftdata[i].magnitude;
         m_ftdata[i].peakSquared = 0;
         m_ftdata[i].phase       = m_dataFT.af(i).normalize();
-        if (m_usedMode >= Mode::LTW1) {
+        if (isLogMode(m_usedMode)) {
             //forward result to reverse
             m_ftdata[i].phase.imag = std::exchange(m_ftdata[i].phase.real, m_ftdata[i].phase.imag);
         }

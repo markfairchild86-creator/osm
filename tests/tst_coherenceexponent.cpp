@@ -47,6 +47,7 @@ private slots:
 
     void clampsExponent();
     void weightsBins();
+    void longTransformModes();
     void persistsExponent();
 };
 
@@ -127,6 +128,29 @@ void CoherenceExponentTest::weightsBins()
     // Non-finite and out-of-range exponents follow the setter's limits.
     QVERIFY(qAbs(Measurement::coherenceWeight(coherence, std::nanf("")) - 0.5f) < 1e-6f);
     QVERIFY(qAbs(Measurement::coherenceWeight(coherence, 10.f) - 0.0625f) < 1e-6f);
+}
+
+void CoherenceExponentTest::longTransformModes()
+{
+    using M = Meta::Measurement;
+
+    QCOMPARE(M::m_FFTsizes.at(M::FFT17), 17);
+    QCOMPARE(M::m_FFTsizes.at(M::FFT18), 18);
+    QCOMPARE(M::m_FFTsizes.at(M::FFT19), 19);
+    QCOMPARE(M::m_FFTsizes.at(M::FFT20), 20);
+    QVERIFY(M::MaxFFTSize >= (1u << 20));
+
+    // The deconvolution result is stored circularly; only the positive-time
+    // half of the transform is causal impulse response.
+    const auto causalDuration = [](unsigned int exponent, unsigned int sampleRate) {
+        return std::pow(2.0, exponent - 1) / sampleRate;
+    };
+    QVERIFY(causalDuration(18, 44100) > 1.6);
+    QVERIFY(causalDuration(18, 48000) > 1.6);
+    QVERIFY(causalDuration(19, 96000) > 1.6);
+    QVERIFY(causalDuration(20, 192000) > 1.6);
+    QVERIFY(causalDuration(17, 48000) < 1.6);
+    QVERIFY(causalDuration(19, 192000) < 1.6);
 }
 
 void CoherenceExponentTest::persistsExponent()

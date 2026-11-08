@@ -41,7 +41,9 @@ public:
     enum MagnitudeAverageType {Polar, Vector};
     Q_ENUM(MagnitudeAverageType)
 
-    enum Mode {FFT10, FFT11, FFT12, FFT13, FFT14, FFT15, FFT16, LFT};
+    // The positive-time half of the deconvolution buffer is causal, so FFT20
+    // (1,048,576 samples) gives 2.73 s of causal IR at 192 kHz.
+    enum Mode {FFT10, FFT11, FFT12, FFT13, FFT14, FFT15, FFT16, LFT, FFT17, FFT18, FFT19, FFT20};
     Q_ENUM(Mode)
     Q_ENUM(Filter::Frequency)
 
@@ -142,6 +144,7 @@ public:
     virtual void delayChanged(int) = 0;
     virtual void inputFilterChanged(Meta::Measurement::InputFilter) = 0;
 
+    static constexpr unsigned int MaxFFTSize = 1u << 20;
     static const std::map<Mode, QString> m_modeMap;
     static const std::map<InputFilter, QString> m_inputFilterMap;
     static const std::map<Mode, int> m_FFTsizes;

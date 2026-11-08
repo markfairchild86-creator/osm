@@ -29,9 +29,22 @@ class Calculator
 public:
     static constexpr int BandCount = 7;
 
+    // Optional IEC 60268-16 post-processing data. Levels are octave-band
+    // sound pressure levels in dB SPL for 125, 250, 500, 1k, 2k, 4k and 8k Hz.
+    // Signal levels enable auditory masking and the absolute reception
+    // threshold; noise levels additionally apply the ambient-noise term.
+    struct Correction {
+        std::array<float, BandCount> signalLevels{};
+        std::array<float, BandCount> noiseLevels{};
+        bool hasSignalLevels = false;
+        bool hasNoiseLevels = false;
+    };
+
     struct Result {
         bool valid = false;
         bool shortImpulse = false;
+        bool noiseCorrectionApplied = false;
+        bool maskingCorrectionApplied = false;
         float sampleRate = 0.f;
         float duration = 0.f;
         float sti = 0.f;
@@ -46,6 +59,10 @@ public:
     static Result fromImpulse(const std::vector<float> &values,
                               const std::vector<float> &times,
                               unsigned sampleRate = 0);
+    static Result fromImpulse(const std::vector<float> &values,
+                              const std::vector<float> &times,
+                              unsigned sampleRate,
+                              const Correction &correction);
 
     static QString rating(float value);
 };

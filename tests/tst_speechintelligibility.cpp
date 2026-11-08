@@ -1,6 +1,7 @@
 #include <QtTest>
 
 #include <cmath>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -14,6 +15,9 @@ private slots:
     void perfectImpulse();
     void centeredImpulse();
     void decayLowersIntelligibility();
+    void appliesNoiseAndMaskingCorrections();
+    void rejectsNoiseWithoutSignalLevels();
+    void rejectsInvalidCorrectionLevels();
     void reportsShortImpulse();
     void rejectsInvalidInput();
     void ratingBands();
@@ -73,6 +77,8 @@ void SpeechIntelligibilityTest::perfectImpulse()
 
     QVERIFY2(result.valid, qPrintable(result.error));
     QVERIFY(!result.shortImpulse);
+    QVERIFY(!result.noiseCorrectionApplied);
+    QVERIFY(!result.maskingCorrectionApplied);
     QVERIFY2(result.sti > 0.98f, qPrintable(QString::number(result.sti)));
     QVERIFY2(result.stipa > 0.98f, qPrintable(QString::number(result.stipa)));
     QVERIFY2(result.rasti > 0.98f, qPrintable(QString::number(result.rasti)));
@@ -127,6 +133,79 @@ void SpeechIntelligibilityTest::decayLowersIntelligibility()
     QVERIFY(dry.rasti >= 0.f && dry.rasti <= 1.f);
     QVERIFY(reverberant.stipa >= 0.f && reverberant.stipa <= 1.f);
     QVERIFY(reverberant.rasti >= 0.f && reverberant.rasti <= 1.f);
+}
+
+void SpeechIntelligibilityTest::appliesNoiseAndMaskingCorrections()
+{
+    const size_t count = SampleRate * 2;
+    std::vector<float> values(count, 0.f);
+    values[0] = 1.f;
+    const auto times = makeTimes(count);
+    const auto baseline = Speech::Calculator::fromImpulse(values, times, SampleRate);
+
+    Speech::Calculator::Correction correction;
+    correction.hasSignalLevels = true;
+    correction.signalLevels.fill(60.f);
+    const auto masked = Speech::Calculator::fromImpulse(values, times, SampleRate, correction);
+
+    QVERIFY2(baseline.valid, qPrintable(baseline.error));
+    QVERIFY2(masked.valid, qPrintable(masked.error));
+    QVERIFY(masked.maskingCorrectionApplied);
+    QVERIFY(!masked.noiseCorrectionApplied);
+    QVERIFY(masked.sti < baseline.sti);
+    QVERIFY(masked.sti > 0.90f);
+
+    correction.hasNoiseLevels = true;
+    correction.noiseLevels.fill(80.f);
+    const auto noisy = Speech::Calculator::fromImpulse(values, times, SampleRate, correction);
+
+    QVERIFY2(noisy.valid, qPrintable(noisy.error));
+    QVERIFY(noisy.maskingCorrectionApplied);
+    QVERIFY(noisy.noiseCorrectionApplied);
+    QVERIFY(noisy.sti < masked.sti);
+    QVERIFY(noisy.sti < 0.50f);
+
+    correction.noiseLevels.fill(60.f);
+    const auto balanced = Speech::Calculator::fromImpulse(values, times, SampleRate, correction);
+    QVERIFY2(balanced.valid, qPrintable(balanced.error));
+    QVERIFY(balanced.mti[0] > 0.45f && balanced.mti[0] < 0.55f);
+
+    correction.hasNoiseLevels = false;
+    correction.signalLevels.fill(30.f);
+    const auto quiet = Speech::Calculator::fromImpulse(values, times, SampleRate, correction);
+    QVERIFY2(quiet.valid, qPrintable(quiet.error));
+    QVERIFY(quiet.sti < masked.sti);
+}
+
+void SpeechIntelligibilityTest::rejectsNoiseWithoutSignalLevels()
+{
+    const size_t count = SampleRate * 2;
+    std::vector<float> values(count, 0.f);
+    values[0] = 1.f;
+
+    Speech::Calculator::Correction correction;
+    correction.hasNoiseLevels = true;
+    correction.noiseLevels.fill(40.f);
+
+    const auto result = Speech::Calculator::fromImpulse(values, makeTimes(count), SampleRate, correction);
+    QVERIFY(!result.valid);
+    QVERIFY(!result.error.isEmpty());
+}
+
+void SpeechIntelligibilityTest::rejectsInvalidCorrectionLevels()
+{
+    const size_t count = SampleRate * 2;
+    std::vector<float> values(count, 0.f);
+    values[0] = 1.f;
+
+    Speech::Calculator::Correction correction;
+    correction.hasSignalLevels = true;
+    correction.signalLevels.fill(60.f);
+    correction.signalLevels[3] = std::numeric_limits<float>::quiet_NaN();
+
+    const auto result = Speech::Calculator::fromImpulse(values, makeTimes(count), SampleRate, correction);
+    QVERIFY(!result.valid);
+    QVERIFY(!result.error.isEmpty());
 }
 
 void SpeechIntelligibilityTest::reportsShortImpulse()

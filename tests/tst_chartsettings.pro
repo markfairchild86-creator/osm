@@ -22,6 +22,9 @@ INCLUDEPATH += \
 SOURCES += \
     tst_chartsettings.cpp \
     chartsettingsstubs.cpp \
+    ../src/abstract/data.cpp \
+    ../src/abstract/levelsdata.cpp \
+    ../src/abstract/source.cpp \
     ../src/chart/axis.cpp \
     ../src/chart/coherenceplot.cpp \
     ../src/chart/crestfactorplot.cpp \
@@ -58,6 +61,8 @@ SOURCES += \
     ../src/targettrace.cpp
 
 HEADERS += \
+    ../src/abstract/data.h \
+    ../src/abstract/source.h \
     ../src/chart/axis.h \
     ../src/chart/coherenceplot.h \
     ../src/chart/crestfactorplot.h \

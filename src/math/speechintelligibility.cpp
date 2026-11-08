@@ -46,6 +46,11 @@ constexpr double Beta[Calculator::BandCount - 1] = {
     0.085, 0.078, 0.065, 0.011, 0.047, 0.095
 };
 
+// IEC 60268-16:2011, Table A.2, absolute speech reception threshold.
+constexpr double ReceptionThreshold[Calculator::BandCount] = {
+    46.0, 27.0, 12.0, 6.5, 7.5, 8.0, 12.0
+};
+
 // Annex B, Table B.1.
 constexpr double StipaFrequencies[Calculator::BandCount][2] = {
     { 1.60, 8.00 },
@@ -103,6 +108,63 @@ private:
 double clampValue(double value, double minimum, double maximum)
 {
     return std::max(minimum, std::min(value, maximum));
+}
+
+double intensityFromLevel(double level)
+{
+    return std::pow(10.0, level / 10.0);
+}
+
+// IEC 60268-16:2011, Table A.1: level-dependent auditory masking in dB.
+double auditoryMaskingDb(double lowerBandLevel)
+{
+    if (lowerBandLevel < 63.0) {
+        return 0.5 * lowerBandLevel - 65.0;
+    }
+    if (lowerBandLevel < 67.0) {
+        return 1.8 * lowerBandLevel - 146.9;
+    }
+    if (lowerBandLevel < 100.0) {
+        return 0.5 * lowerBandLevel - 59.8;
+    }
+    return -10.0;
+}
+
+double correctedModulation(double modulation, int band,
+                           const Calculator::Correction &correction)
+{
+    if (!correction.hasSignalLevels) {
+        return modulation;
+    }
+
+    const double signal = intensityFromLevel(correction.signalLevels[band]);
+    const double noise = correction.hasNoiseLevels
+                         ? intensityFromLevel(correction.noiseLevels[band])
+                         : 0.0;
+
+    // Auditory masking only spreads upwards into the next octave band. The
+    // masking factor depends on the total level (signal plus ambient noise)
+    // in the lower band.
+    double masking = 0.0;
+    if (band > 0) {
+        const double lowerLevel = intensityFromLevel(correction.signalLevels[band - 1])
+                                  + (correction.hasNoiseLevels
+                                     ? intensityFromLevel(correction.noiseLevels[band - 1])
+                                     : 0.0);
+        if (lowerLevel > 0.0 && std::isfinite(lowerLevel)) {
+            const double lowerBandLevel = 10.0 * std::log10(lowerLevel);
+            masking = lowerLevel * intensityFromLevel(auditoryMaskingDb(lowerBandLevel));
+        }
+    }
+
+    const double threshold = intensityFromLevel(ReceptionThreshold[band]);
+    const double denominator = signal + noise + masking + threshold;
+    if (!(denominator > 0.0) || !std::isfinite(denominator)) {
+        return 0.0;
+    }
+
+    // IEC 60268-16:2011, A.5.3, with the ambient-noise term from NOTE 2.
+    return clampValue(modulation * signal / denominator, 0.0, 1.0);
 }
 
 double transmissionIndex(double modulation)
@@ -191,11 +253,42 @@ Calculator::Result Calculator::fromImpulse(const std::vector<float> &values,
                                           const std::vector<float> &times,
                                           unsigned sampleRate)
 {
+    return fromImpulse(values, times, sampleRate, Correction{});
+}
+
+Calculator::Result Calculator::fromImpulse(const std::vector<float> &values,
+                                          const std::vector<float> &times,
+                                          unsigned sampleRate,
+                                          const Correction &correction)
+{
     Result result;
     const size_t count = std::min(values.size(), times.size());
     if (count < 32) {
         result.error = QStringLiteral("Not enough impulse-response samples.");
         return result;
+    }
+
+    if (correction.hasNoiseLevels && !correction.hasSignalLevels) {
+        result.error = QStringLiteral("Signal octave-band levels are required for noise correction.");
+        return result;
+    }
+    if (correction.hasSignalLevels || correction.hasNoiseLevels) {
+        for (int band = 0; band < BandCount; ++band) {
+            if (correction.hasSignalLevels) {
+                const double level = correction.signalLevels[band];
+                if (!std::isfinite(level) || level < -300.0 || level > 300.0) {
+                    result.error = QStringLiteral("Speech octave-band levels must be finite values in dB SPL.");
+                    return result;
+                }
+            }
+            if (correction.hasNoiseLevels) {
+                const double level = correction.noiseLevels[band];
+                if (!std::isfinite(level) || level < -300.0 || level > 300.0) {
+                    result.error = QStringLiteral("Noise octave-band levels must be finite values in dB SPL.");
+                    return result;
+                }
+            }
+        }
     }
 
     std::vector<std::pair<double, double>> samples;
@@ -350,6 +443,10 @@ Calculator::Result Calculator::fromImpulse(const std::vector<float> &values,
 
     std::array<std::array<float, ModulationCount>, BandCount> fullTi{};
     std::array<std::array<float, 2>, BandCount> stipaTi{};
+    const auto correctedTi = [&correction](double modulation, int band) {
+        return static_cast<float>(transmissionIndex(
+            correctedModulation(clampValue(modulation, 0.0, 1.0), band, correction)));
+    };
 
     for (int band = 0; band < BandCount; ++band) {
         double total = 0.0;
@@ -362,15 +459,13 @@ Calculator::Result Calculator::fromImpulse(const std::vector<float> &values,
                 const double normalized = modulationAt(bandEnergy[band],
                                                        ModulationFrequencies[modulation],
                                                        rate) / total;
-                fullTi[band][modulation] = static_cast<float>(
-                    transmissionIndex(clampValue(normalized, 0.0, 1.0)));
+                fullTi[band][modulation] = correctedTi(normalized, band);
             }
             for (int modulation = 0; modulation < 2; ++modulation) {
                 const double normalized = modulationAt(bandEnergy[band],
                                                        StipaFrequencies[band][modulation],
                                                        rate) / total;
-                stipaTi[band][modulation] = static_cast<float>(
-                    transmissionIndex(clampValue(normalized, 0.0, 1.0)));
+                stipaTi[band][modulation] = correctedTi(normalized, band);
             }
         }
 
@@ -405,11 +500,13 @@ Calculator::Result Calculator::fromImpulse(const std::vector<float> &values,
                                           RastiFrequencies[rastiBand][modulation],
                                           rate) / total;
             }
-            rastiSum += transmissionIndex(clampValue(normalized, 0.0, 1.0));
+            rastiSum += correctedTi(normalized, band);
             ++rastiCount;
         }
     }
     result.rasti = static_cast<float>(clampValue(rastiSum / std::max(1, rastiCount), 0.0, 1.0));
+    result.noiseCorrectionApplied = correction.hasNoiseLevels;
+    result.maskingCorrectionApplied = correction.hasSignalLevels;
     result.valid = true;
     return result;
 }
