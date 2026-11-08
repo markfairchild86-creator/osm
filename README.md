@@ -3,7 +3,7 @@ Crossplatform measurement software for tuning sound systems.
 
 **Supported systems:** macOS, Windows, Linux
 
-Current version: v1.6.0
+Current version: v1.6.1
 
 [Project page](https://opensoundmeter.com/)
 
