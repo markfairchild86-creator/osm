@@ -24,6 +24,33 @@ Measurement and windowing modes now include FFT 17 through FFT 20, up to 1,048,5
 
 The Speech Intelligibility chart calculates STI, STIPA and RASTI from an impulse response using the indirect method of IEC 60268-16. Optional **Noise & masking** corrections apply the standard's auditory-masking and absolute speech-reception-threshold terms, and can also include ambient noise. Enter seven octave-band speech levels and, when needed, seven noise levels from 125 Hz to 8 kHz in dB SPL; the status line reports whether corrections are off, applied, or why the entered levels cannot be used. Correction settings are stored with the chart.
 
+### Worked correction example
+
+Select a stored impulse-response measurement, open the Speech Intelligibility chart, and enable **Noise & masking**. Enter the speech levels for the speech signal alone, without the background noise, in the order 125, 250, 500, 1k, 2k, 4k and 8k Hz, separated by spaces or commas. For example:
+
+`62, 65, 68, 70, 71, 69, 66`
+
+If background noise is present, enter the seven matching octave-band noise levels in the **Noise dB SPL** field. For example:
+
+`48, 44, 40, 36, 33, 30, 28`
+
+Leave **Noise dB SPL** empty to apply only auditory masking and the absolute reception threshold. The chart recalculates automatically when a field loses focus or the checkbox changes.
+
+The status line below the chart reports which correction was used, or what needs fixing. These are the relevant parts of that line:
+
+| Status line contains | Meaning |
+|---|---|
+| `noise/masking corrections off` | The checkbox is off; the displayed values use the unmodified impulse response. |
+| `masking/threshold correction applied` | Seven valid speech levels were accepted; masking and the absolute reception threshold were applied. |
+| `noise + masking corrections applied` | Valid speech and noise levels were accepted; the ambient-noise term was applied as well. |
+| `enter seven speech octave-band levels in dB SPL` | The checkbox is on but the speech field is empty; the chart remains uncorrected. |
+| `speech levels: expected seven values for 125 Hz to 8 kHz` | The speech field does not contain exactly seven numbers; correct the field. |
+| `speech levels: invalid number: <value>` | One speech value is not numeric; correct the field. |
+| `noise levels: expected seven values for 125 Hz to 8 kHz` | The noise field does not contain exactly seven numbers; noise is left out, and masking stays active only if the speech levels are valid. |
+| `noise levels: invalid number: <value>` | One noise value is not numeric; noise is left out, and masking stays active only if the speech levels are valid. |
+
+Malformed or missing levels do not stop the chart; they leave the affected correction out and show the reason in the status line. If the line includes `IR ... (under 1.6 s)`, the stored impulse response is shorter than 1.6 s and the status is flagged in orange; capture a longer response to remove the warning.
+
 ## Tests
 
 QtTest targets cover magnitude averaging, weighting curves, speech intelligibility (including IEC 60268-16 correction math), long impulse-response deconvolution, and chart settings. The [Qt tests workflow](.github/workflows/qt-averaging.yml) runs the suites on Linux, with the weighting, speech, long-impulse and chart suites also running on Windows and macOS.
